@@ -13,6 +13,7 @@ from repositories.study_progress_repository import StudyProgressRepository
 from services.flashcard_service import FlashcardService
 from services.study_set_service import StudySetService
 from services.study_progress_service import StudyProgressService
+from services.learning_service import LearningService
 
 from ui.main_window import MainWindow
 
@@ -80,10 +81,15 @@ def create_services(repositories):
         repositories["study_set"],
     )
 
+    learning_service = LearningService(
+        study_progress_service
+    )
+
     return {
         "study_set": study_set_service,
         "flashcard": flashcard_service,
         "study_progress": study_progress_service,
+        "learning": learning_service,
     }
 
 
@@ -103,6 +109,7 @@ def main() -> int:
         study_set_service=services["study_set"],
         flashcard_service=services["flashcard"],
         study_progress_service=services["study_progress"],
+        learning_service=services["learning"],
     )
 
     window.show()
