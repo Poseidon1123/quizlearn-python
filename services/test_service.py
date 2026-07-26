@@ -55,6 +55,7 @@ class TestService:
             selected = selected[:max_questions]
 
         questions: list[TestQuestion] = []
+        can_build_mcq = len(cards) >= 2
 
         for index, card in enumerate(selected):
             direction = random.choice(
@@ -64,10 +65,9 @@ class TestService:
                 ]
             )
 
-            # Xen kẽ hai loại để một bài test đủ lớn luôn có cả MCQ và Written.
             question_type = (
                 QUESTION_MULTIPLE_CHOICE
-                if index % 2 == 0
+                if can_build_mcq and index % 2 == 0
                 else QUESTION_WRITTEN
             )
 
