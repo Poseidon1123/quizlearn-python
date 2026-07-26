@@ -11,15 +11,31 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QFrame,
+    QComboBox,
 )
 
 from services.study_set_service import StudySetService
 from services.flashcard_service import FlashcardService
-from services.learning_service import LearningService
+from services.learning_service import (
+    DIRECTION_DEFINITION_TO_TERM,
+    DIRECTION_TERM_TO_DEFINITION,
+    LearningService,
+)
+
+
+MODE_TERM_TO_DEFINITION = "term_to_definition"
+MODE_DEFINITION_TO_TERM = "definition_to_term"
+MODE_MIXED = "mixed"
 
 
 class LearnPage(QWidget):
-    """Learn Mode: hiển thị Term và yêu cầu người dùng nhập Definition."""
+    """
+    Learn Mode có ba cách học:
+
+    - Term -> nhập Definition
+    - Definition -> nhập Term
+    - Mixed: trộn ngẫu nhiên hai chiều
+    """
 
     back_requested = Signal()
 
@@ -37,8 +53,10 @@ class LearnPage(QWidget):
         self.learning_service = learning_service
 
         self.current_set_id: int | None = None
+        self.all_cards = []
         self.queue = []
         self.current_card = None
+        self.current_direction = DIRECTION_TERM_TO_DEFINITION
         self.total_initial = 0
         self.correct_count = 0
         self.wrong_count = 0
@@ -68,6 +86,30 @@ class LearnPage(QWidget):
         header.addWidget(self.title_label)
         header.addStretch()
 
+        mode_label = QLabel("Mode:")
+        mode_label.setObjectName("SecondaryText")
+        header.addWidget(mode_label)
+
+        self.mode_combo = QComboBox()
+        self.mode_combo.setObjectName("LearnModeCombo")
+        self.mode_combo.setMinimumWidth(210)
+        self.mode_combo.addItem(
+            "Term → Definition",
+            MODE_TERM_TO_DEFINITION,
+        )
+        self.mode_combo.addItem(
+            "Definition → Term",
+            MODE_DEFINITION_TO_TERM,
+        )
+        self.mode_combo.addItem(
+            "Mixed",
+            MODE_MIXED,
+        )
+        self.mode_combo.currentIndexChanged.connect(
+            self._on_mode_changed
+        )
+        header.addWidget(self.mode_combo)
+
         layout.addLayout(header)
 
         self.progress_bar = QProgressBar()
@@ -83,16 +125,16 @@ class LearnPage(QWidget):
         question_layout.setContentsMargins(32, 30, 32, 30)
         question_layout.setSpacing(14)
 
-        prompt = QLabel("What is the definition of:")
-        prompt.setObjectName("SecondaryText")
-        prompt.setAlignment(Qt.AlignCenter)
-        question_layout.addWidget(prompt)
+        self.prompt_label = QLabel("What is the definition of:")
+        self.prompt_label.setObjectName("SecondaryText")
+        self.prompt_label.setAlignment(Qt.AlignCenter)
+        question_layout.addWidget(self.prompt_label)
 
-        self.term_label = QLabel("")
-        self.term_label.setObjectName("LearnTerm")
-        self.term_label.setAlignment(Qt.AlignCenter)
-        self.term_label.setWordWrap(True)
-        question_layout.addWidget(self.term_label)
+        self.question_label = QLabel("")
+        self.question_label.setObjectName("LearnTerm")
+        self.question_label.setAlignment(Qt.AlignCenter)
+        self.question_label.setWordWrap(True)
+        question_layout.addWidget(self.question_label)
 
         layout.addWidget(self.question_frame, 1)
 
@@ -160,16 +202,9 @@ class LearnPage(QWidget):
 
         self.current_set_id = set_id
         self.title_label.setText(f"Learn · {study_set.title}")
+        self.all_cards = list(cards)
 
-        self.queue = list(cards)
-        random.shuffle(self.queue)
-        self.total_initial = len(self.queue)
-        self.correct_count = 0
-        self.wrong_count = 0
-        self.answered_count = 0
-        self.awaiting_next = False
-
-        if not self.queue:
+        if not self.all_cards:
             self._show_empty_state()
             return True
 
@@ -180,17 +215,77 @@ class LearnPage(QWidget):
         self.feedback_label.setVisible(True)
         self.stats_label.setVisible(True)
         self.keyboard_hint.setVisible(True)
+        self.mode_combo.setEnabled(True)
 
-        self._show_next_card()
+        self._restart_session()
         return True
+
+    def _restart_session(self) -> None:
+        self.queue = [
+            (
+                card,
+                self._choose_direction_for_new_card(),
+            )
+            for card in self.all_cards
+        ]
+        random.shuffle(self.queue)
+
+        self.total_initial = len(self.queue)
+        self.correct_count = 0
+        self.wrong_count = 0
+        self.answered_count = 0
+        self.awaiting_next = False
+        self.current_card = None
+        self.stats_label.setText("Correct: 0    Incorrect: 0")
+
+        if self.queue:
+            self._show_next_card()
+        else:
+            self._show_empty_state()
+
+    def _current_mode(self) -> str:
+        return self.mode_combo.currentData() or MODE_TERM_TO_DEFINITION
+
+    def _choose_direction_for_new_card(self) -> str:
+        mode = self._current_mode()
+
+        if mode == MODE_DEFINITION_TO_TERM:
+            return DIRECTION_DEFINITION_TO_TERM
+
+        if mode == MODE_MIXED:
+            return random.choice(
+                [
+                    DIRECTION_TERM_TO_DEFINITION,
+                    DIRECTION_DEFINITION_TO_TERM,
+                ]
+            )
+
+        return DIRECTION_TERM_TO_DEFINITION
+
+    def _on_mode_changed(self) -> None:
+        if self.current_set_id is None or not self.all_cards:
+            return
+
+        # Đổi mode sẽ bắt đầu lại phiên hiện tại để progress session rõ ràng.
+        self._restart_session()
 
     def _show_next_card(self) -> None:
         if not self.queue:
             self._finish_session()
             return
 
-        self.current_card = self.queue.pop(0)
-        self.term_label.setText(self.current_card.term)
+        self.current_card, self.current_direction = self.queue.pop(0)
+
+        prompt, displayed_value, input_hint = (
+            self.learning_service.get_prompt_and_answer_hint(
+                self.current_card,
+                self.current_direction,
+            )
+        )
+
+        self.prompt_label.setText(prompt)
+        self.question_label.setText(displayed_value)
+        self.answer_input.setPlaceholderText(input_hint)
 
         self.answer_input.clear()
         self.answer_input.setEnabled(True)
@@ -213,9 +308,10 @@ class LearnPage(QWidget):
             return
 
         try:
-            is_correct, correct_answer = self.learning_service.submit_answer(
+            result = self.learning_service.submit_answer(
                 self.current_card,
                 self.answer_input.text(),
+                direction=self.current_direction,
             )
         except ValueError as error:
             QMessageBox.information(self, "Learn", str(error))
@@ -227,19 +323,34 @@ class LearnPage(QWidget):
         self.answered_count += 1
         self.answer_input.setEnabled(False)
 
-        if is_correct:
+        if result.is_correct:
             self.correct_count += 1
-            self.feedback_label.setText("✓ Correct")
+
+            if result.accepted_with_typo:
+                self.feedback_label.setText(
+                    "✓ Correct — minor typo accepted"
+                )
+                self.correct_answer_label.setText(
+                    f"Expected answer: {result.canonical_answer}"
+                )
+                self.correct_answer_label.setVisible(True)
+            else:
+                self.feedback_label.setText("✓ Correct")
         else:
             self.wrong_count += 1
             self.feedback_label.setText("✗ Incorrect")
             self.correct_answer_label.setText(
-                f"Correct answer: {correct_answer}"
+                f"Correct answer: {result.canonical_answer}"
             )
             self.correct_answer_label.setVisible(True)
 
-            # Câu sai được đưa về cuối hàng đợi để học lại.
-            self.queue.append(self.current_card)
+            # Giữ nguyên chiều bị trả lời sai khi đưa card xuống cuối queue.
+            self.queue.append(
+                (
+                    self.current_card,
+                    self.current_direction,
+                )
+            )
 
         self.stats_label.setText(
             f"Correct: {self.correct_count}    Incorrect: {self.wrong_count}"
@@ -255,10 +366,11 @@ class LearnPage(QWidget):
             self.progress_bar.setFormat("0 / 0")
             return
 
-        # Số card gốc đã vượt qua ít nhất một lần đúng.
         completed = max(
             0,
-            self.total_initial - len(self.queue) - (1 if self.current_card else 0),
+            self.total_initial
+            - len(self.queue)
+            - (1 if self.current_card else 0),
         )
 
         if self.awaiting_next and self.feedback_label.text().startswith("✓"):
@@ -280,11 +392,14 @@ class LearnPage(QWidget):
             else "0 / 0"
         )
 
+        mode_name = self.mode_combo.currentText()
+
         QMessageBox.information(
             self,
             "Learn Session Complete",
             (
                 "Bạn đã hoàn thành Learn Mode.\n\n"
+                f"Mode: {mode_name}\n"
                 f"Correct attempts: {self.correct_count}\n"
                 f"Incorrect attempts: {self.wrong_count}\n"
                 f"Total attempts: {self.answered_count}"
@@ -303,5 +418,6 @@ class LearnPage(QWidget):
         self.stats_label.setVisible(False)
         self.empty_label.setVisible(True)
         self.keyboard_hint.setVisible(False)
+        self.mode_combo.setEnabled(False)
         self.progress_bar.setValue(0)
         self.progress_bar.setFormat("0 / 0")
