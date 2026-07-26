@@ -1,4 +1,4 @@
-﻿from PySide6.QtCore import Signal, Qt
+from PySide6.QtCore import Signal, Qt
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -22,11 +22,10 @@ from services.flashcard_service import FlashcardService
 
 class EditFlashcardRow(QFrame):
     """
-    Một dòng Flashcard trong trang Edit.
+    Một dòng flashcard trong trang Edit.
 
-    card_id:
-        None  -> Flashcard mới
-        int   -> Flashcard đã tồn tại trong database
+    card_id = None  -> card mới
+    card_id = int   -> card đã tồn tại trong database
     """
 
     delete_requested = Signal(object)
@@ -53,10 +52,6 @@ class EditFlashcardRow(QFrame):
             definition
         )
 
-    # ========================================================
-    # SETUP UI
-    # ========================================================
-
     def _setup_ui(
         self,
         term: str,
@@ -78,10 +73,6 @@ class EditFlashcardRow(QFrame):
             10
         )
 
-        # ----------------------------------------------------
-        # NUMBER
-        # ----------------------------------------------------
-
         self.number_label = QLabel(
             str(self.index)
         )
@@ -102,24 +93,16 @@ class EditFlashcardRow(QFrame):
             self.number_label
         )
 
-        # ----------------------------------------------------
-        # TERM
-        # ----------------------------------------------------
-
         self.term_input = QLineEdit()
-
         self.term_input.setObjectName(
             "CardInput"
         )
-
         self.term_input.setPlaceholderText(
             "Term / Question"
         )
-
         self.term_input.setMinimumHeight(
             44
         )
-
         self.term_input.setText(
             term
         )
@@ -129,24 +112,16 @@ class EditFlashcardRow(QFrame):
             1
         )
 
-        # ----------------------------------------------------
-        # DEFINITION
-        # ----------------------------------------------------
-
         self.definition_input = QLineEdit()
-
         self.definition_input.setObjectName(
             "CardInput"
         )
-
         self.definition_input.setPlaceholderText(
             "Definition / Answer"
         )
-
         self.definition_input.setMinimumHeight(
             44
         )
-
         self.definition_input.setText(
             definition
         )
@@ -155,10 +130,6 @@ class EditFlashcardRow(QFrame):
             self.definition_input,
             1
         )
-
-        # ----------------------------------------------------
-        # DELETE
-        # ----------------------------------------------------
 
         self.delete_button = QPushButton(
             "×"
@@ -178,40 +149,31 @@ class EditFlashcardRow(QFrame):
         )
 
         self.delete_button.clicked.connect(
-            lambda:
-            self.delete_requested.emit(
-                self
-            )
+            lambda: self.delete_requested.emit(self)
         )
 
         layout.addWidget(
             self.delete_button
         )
 
-    # ========================================================
-    # GET DATA
-    # ========================================================
-
     def get_data(
         self
-    ) -> tuple[str, str]:
-
+    ) -> tuple[int | None, str, str]:
+        """
+        Trả dữ liệu thô cho Service xử lý/validate.
+        UI không quyết định CREATE hay UPDATE.
+        """
         return (
-            self.term_input.text().strip(),
-            self.definition_input.text().strip()
+            self.card_id,
+            self.term_input.text(),
+            self.definition_input.text()
         )
-
-    # ========================================================
-    # SET INDEX
-    # ========================================================
 
     def set_index(
         self,
         index: int
     ) -> None:
-
         self.index = index
-
         self.number_label.setText(
             str(index)
         )
@@ -223,22 +185,20 @@ class EditFlashcardRow(QFrame):
 
 class EditStudySetPage(QWidget):
     """
-    Chỉnh sửa toàn bộ StudySet:
+    Trang chỉnh sửa StudySet.
 
-    - Title
-    - Description
-    - sửa Flashcard
-    - thêm Flashcard
-    - xóa Flashcard
+    Trách nhiệm của UI chỉ còn:
+    - hiển thị dữ liệu;
+    - thu thập dữ liệu người dùng;
+    - phát yêu cầu Save;
+    - hiển thị kết quả/lỗi.
+
+    Quyết định CREATE / UPDATE / DELETE card, validation nghiệp vụ và
+    transaction được xử lý trong StudySetService.
     """
 
     saved = Signal(int)
-
     cancel_requested = Signal()
-
-    # ========================================================
-    # INIT
-    # ========================================================
 
     def __init__(
         self,
@@ -248,20 +208,15 @@ class EditStudySetPage(QWidget):
     ):
         super().__init__(parent)
 
-        self.study_set_service = (
-            study_set_service
-        )
+        self.study_set_service = study_set_service
 
-        self.flashcard_service = (
-            flashcard_service
-        )
+        # FlashcardService hiện chỉ dùng cho thao tác đọc danh sách card.
+        # Toàn bộ workflow ghi dữ liệu đã chuyển sang StudySetService.
+        self.flashcard_service = flashcard_service
 
-        self.current_set_id = None
-
-        self.card_rows = []
-
-        # Những card đã tồn tại nhưng người dùng yêu cầu xóa
-        self.deleted_card_ids = set()
+        self.current_set_id: int | None = None
+        self.card_rows: list[EditFlashcardRow] = []
+        self.deleted_card_ids: set[int] = set()
 
         self._setup_ui()
 
@@ -288,16 +243,15 @@ class EditStudySetPage(QWidget):
             16
         )
 
-        # ====================================================
+        # ----------------------------------------------------
         # HEADER
-        # ====================================================
+        # ----------------------------------------------------
 
         header = QHBoxLayout()
 
         title = QLabel(
             "Edit Study Set"
         )
-
         title.setObjectName(
             "PageTitle"
         )
@@ -305,21 +259,17 @@ class EditStudySetPage(QWidget):
         header.addWidget(
             title
         )
-
         header.addStretch()
 
         self.cancel_button = QPushButton(
             "Cancel"
         )
-
         self.cancel_button.setObjectName(
             "SecondaryButton"
         )
-
         self.cancel_button.setCursor(
             Qt.PointingHandCursor
         )
-
         self.cancel_button.clicked.connect(
             self.cancel_requested.emit
         )
@@ -332,14 +282,13 @@ class EditStudySetPage(QWidget):
             header
         )
 
-        # ====================================================
+        # ----------------------------------------------------
         # TITLE
-        # ====================================================
+        # ----------------------------------------------------
 
         title_label = QLabel(
             "Title"
         )
-
         title_label.setObjectName(
             "FieldLabel"
         )
@@ -349,15 +298,12 @@ class EditStudySetPage(QWidget):
         )
 
         self.title_input = QLineEdit()
-
         self.title_input.setObjectName(
             "MainInput"
         )
-
         self.title_input.setMinimumHeight(
             46
         )
-
         self.title_input.setPlaceholderText(
             "Study Set title"
         )
@@ -366,14 +312,13 @@ class EditStudySetPage(QWidget):
             self.title_input
         )
 
-        # ====================================================
+        # ----------------------------------------------------
         # DESCRIPTION
-        # ====================================================
+        # ----------------------------------------------------
 
         description_label = QLabel(
             "Description"
         )
-
         description_label.setObjectName(
             "FieldLabel"
         )
@@ -383,15 +328,12 @@ class EditStudySetPage(QWidget):
         )
 
         self.description_input = QTextEdit()
-
         self.description_input.setObjectName(
             "DescriptionInput"
         )
-
         self.description_input.setPlaceholderText(
             "Mô tả bộ học..."
         )
-
         self.description_input.setFixedHeight(
             90
         )
@@ -400,16 +342,15 @@ class EditStudySetPage(QWidget):
             self.description_input
         )
 
-        # ====================================================
-        # FLASHCARD HEADER
-        # ====================================================
+        # ----------------------------------------------------
+        # FLASHCARDS HEADER
+        # ----------------------------------------------------
 
         card_header = QHBoxLayout()
 
         cards_title = QLabel(
             "Flashcards"
         )
-
         cards_title.setObjectName(
             "SectionTitle"
         )
@@ -417,13 +358,11 @@ class EditStudySetPage(QWidget):
         card_header.addWidget(
             cards_title
         )
-
         card_header.addStretch()
 
         self.card_count_label = QLabel(
             "0 cards"
         )
-
         self.card_count_label.setObjectName(
             "SecondaryText"
         )
@@ -436,16 +375,14 @@ class EditStudySetPage(QWidget):
             card_header
         )
 
-        # ====================================================
-        # SCROLL AREA
-        # ====================================================
+        # ----------------------------------------------------
+        # CARD SCROLL AREA
+        # ----------------------------------------------------
 
         self.scroll_area = QScrollArea()
-
         self.scroll_area.setWidgetResizable(
             True
         )
-
         self.scroll_area.setObjectName(
             "CardScrollArea"
         )
@@ -455,18 +392,15 @@ class EditStudySetPage(QWidget):
         self.cards_layout = QVBoxLayout(
             self.cards_container
         )
-
         self.cards_layout.setContentsMargins(
             0,
             0,
             0,
             0
         )
-
         self.cards_layout.setSpacing(
             10
         )
-
         self.cards_layout.addStretch()
 
         self.scroll_area.setWidget(
@@ -478,26 +412,22 @@ class EditStudySetPage(QWidget):
             1
         )
 
-        # ====================================================
+        # ----------------------------------------------------
         # ADD CARD
-        # ====================================================
+        # ----------------------------------------------------
 
         self.add_card_button = QPushButton(
             "+ Add Card"
         )
-
         self.add_card_button.setObjectName(
             "SecondaryButton"
         )
-
         self.add_card_button.setMinimumHeight(
             44
         )
-
         self.add_card_button.setCursor(
             Qt.PointingHandCursor
         )
-
         self.add_card_button.clicked.connect(
             lambda: self.add_card_row()
         )
@@ -506,26 +436,22 @@ class EditStudySetPage(QWidget):
             self.add_card_button
         )
 
-        # ====================================================
+        # ----------------------------------------------------
         # SAVE
-        # ====================================================
+        # ----------------------------------------------------
 
         self.save_button = QPushButton(
             "Save Changes"
         )
-
         self.save_button.setObjectName(
             "PrimaryButton"
         )
-
         self.save_button.setMinimumHeight(
             48
         )
-
         self.save_button.setCursor(
             Qt.PointingHandCursor
         )
-
         self.save_button.clicked.connect(
             self._save
         )
@@ -535,7 +461,7 @@ class EditStudySetPage(QWidget):
         )
 
     # ========================================================
-    # LOAD STUDY SET
+    # LOAD
     # ========================================================
 
     def load_study_set(
@@ -544,90 +470,58 @@ class EditStudySetPage(QWidget):
     ) -> None:
 
         try:
-
-            study_set = (
-                self.study_set_service
-                .get_study_set(
-                    set_id
-                )
+            study_set = self.study_set_service.get_study_set(
+                set_id
             )
 
-            flashcards = (
-                self.flashcard_service
-                .get_flashcards_by_set(
-                    set_id
-                )
+            flashcards = self.flashcard_service.get_flashcards_by_set(
+                set_id
             )
 
         except ValueError as error:
-
             QMessageBox.warning(
                 self,
                 "Error",
                 str(error)
             )
-
             return
 
         except Exception as error:
-
             QMessageBox.critical(
                 self,
                 "Database Error",
                 str(error)
             )
-
             return
 
         self.current_set_id = set_id
-
         self.deleted_card_ids.clear()
-
-        # ----------------------------------------------------
-        # TITLE
-        # ----------------------------------------------------
 
         self.title_input.setText(
             study_set.title
         )
 
-        # ----------------------------------------------------
-        # DESCRIPTION
-        # ----------------------------------------------------
-
         self.description_input.setPlainText(
             study_set.description or ""
         )
 
-        # ----------------------------------------------------
-        # CLEAR OLD ROWS
-        # ----------------------------------------------------
-
         self._clear_rows()
 
-        # ----------------------------------------------------
-        # LOAD CARDS
-        # ----------------------------------------------------
-
         for card in flashcards:
-
             self.add_card_row(
                 card_id=card.id,
                 term=card.term,
                 definition=card.definition
             )
 
-        # Nếu StudySet đang rỗng thì vẫn cho một dòng nhập
         if not self.card_rows:
-
             self.add_card_row()
 
         self._update_card_count()
-
         self.title_input.setFocus()
 
     # ========================================================
-    # ADD CARD ROW
+    # ROW MANAGEMENT
     # ========================================================
 
     def add_card_row(
@@ -664,12 +558,7 @@ class EditStudySetPage(QWidget):
         self._update_card_count()
 
         if card_id is None:
-
             row.term_input.setFocus()
-
-    # ========================================================
-    # REMOVE CARD
-    # ========================================================
 
     def remove_card_row(
         self,
@@ -679,33 +568,23 @@ class EditStudySetPage(QWidget):
         if row not in self.card_rows:
             return
 
-        # ----------------------------------------------------
-        # EXISTING DATABASE CARD
-        # ----------------------------------------------------
-
         if row.card_id is not None:
-
             answer = QMessageBox.question(
                 self,
                 "Delete Flashcard",
                 "Bạn có chắc muốn xóa flashcard này không?",
-                QMessageBox.Yes
-                | QMessageBox.No,
+                QMessageBox.Yes | QMessageBox.No,
                 QMessageBox.No
             )
 
             if answer != QMessageBox.Yes:
                 return
 
-            # Chưa xóa database ngay.
-            # Chỉ ghi nhận để xóa khi Save.
+            # Chỉ ghi nhận ý định xóa. Database chưa bị thay đổi cho đến
+            # khi người dùng bấm Save Changes.
             self.deleted_card_ids.add(
                 row.card_id
             )
-
-        # ----------------------------------------------------
-        # REMOVE UI ROW
-        # ----------------------------------------------------
 
         self.card_rows.remove(
             row
@@ -718,35 +597,22 @@ class EditStudySetPage(QWidget):
         row.deleteLater()
 
         self._renumber_rows()
-
         self._update_card_count()
 
-        # Luôn để ít nhất một dòng nhập
         if not self.card_rows:
-
             self.add_card_row()
-
-    # ========================================================
-    # CLEAR ROWS
-    # ========================================================
 
     def _clear_rows(
         self
     ) -> None:
 
         for row in self.card_rows:
-
             self.cards_layout.removeWidget(
                 row
             )
-
             row.deleteLater()
 
         self.card_rows.clear()
-
-    # ========================================================
-    # RENUMBER
-    # ========================================================
 
     def _renumber_rows(
         self
@@ -756,14 +622,9 @@ class EditStudySetPage(QWidget):
             self.card_rows,
             start=1
         ):
-
             row.set_index(
                 index
             )
-
-    # ========================================================
-    # UPDATE COUNT
-    # ========================================================
 
     def _update_card_count(
         self
@@ -780,198 +641,81 @@ class EditStudySetPage(QWidget):
         )
 
     # ========================================================
-    # VALIDATE
-    # ========================================================
-
-    def _validate_rows(
-        self
-    ) -> None:
-
-        valid_card_count = 0
-
-        for row in self.card_rows:
-
-            term, definition = (
-                row.get_data()
-            )
-
-            # Dòng mới hoàn toàn trống được phép bỏ qua
-            if (
-                row.card_id is None
-                and not term
-                and not definition
-            ):
-                continue
-
-            if not term:
-
-                raise ValueError(
-                    f"Flashcard số {row.index}: "
-                    "Term / Question không được để trống."
-                )
-
-            if not definition:
-
-                raise ValueError(
-                    f"Flashcard số {row.index}: "
-                    "Definition / Answer không được để trống."
-                )
-
-            valid_card_count += 1
-
-        if valid_card_count == 0:
-
-            raise ValueError(
-                "Study Set phải có ít nhất một flashcard."
-            )
-
-    # ========================================================
     # SAVE
     # ========================================================
 
     def _save(
         self
     ) -> None:
+        """
+        Thu thập dữ liệu UI và giao toàn bộ nghiệp vụ Save cho Service.
 
+        Không UPDATE/INSERT/DELETE database trực tiếp tại Page này.
+        """
         if self.current_set_id is None:
-
             QMessageBox.warning(
                 self,
                 "Error",
                 "Chưa có Study Set nào được chọn."
             )
-
             return
 
-        title = (
-            self.title_input
-            .text()
-            .strip()
+        cards = [
+            row.get_data()
+            for row in self.card_rows
+        ]
+
+        self.save_button.setEnabled(
+            False
         )
 
-        description = (
-            self.description_input
-            .toPlainText()
-            .strip()
-        )
-
-        # ----------------------------------------------------
-        # VALIDATE CARD DATA
-        # ----------------------------------------------------
-
         try:
-
-            self._validate_rows()
-
-        except ValueError as error:
-
-            QMessageBox.warning(
-                self,
-                "Invalid Data",
-                str(error)
+            updated_set = (
+                self.study_set_service
+                .save_study_set_with_flashcards(
+                    set_id=self.current_set_id,
+                    title=self.title_input.text(),
+                    description=(
+                        self.description_input.toPlainText()
+                    ),
+                    cards=cards,
+                    deleted_card_ids=self.deleted_card_ids
+                )
             )
 
-            return
-
-        try:
-
-            # =================================================
-            # UPDATE STUDY SET
-            # =================================================
-
-            self.study_set_service.update_study_set(
-                set_id=self.current_set_id,
-                title=title,
-                description=description
-            )
-
-            # =================================================
-            # DELETE CARDS
-            # =================================================
-
-            for card_id in self.deleted_card_ids:
-
-                self.flashcard_service.delete_flashcard(
-                    card_id
-                )
-
-            # =================================================
-            # CREATE / UPDATE CARDS
-            # =================================================
-
-            for row in self.card_rows:
-
-                term, definition = (
-                    row.get_data()
-                )
-
-                # ---------------------------------------------
-                # NEW EMPTY ROW
-                # ---------------------------------------------
-
-                if (
-                    row.card_id is None
-                    and not term
-                    and not definition
-                ):
-                    continue
-
-                # ---------------------------------------------
-                # NEW CARD
-                # ---------------------------------------------
-
-                if row.card_id is None:
-
-                    self.flashcard_service.create_flashcard(
-                        set_id=self.current_set_id,
-                        term=term,
-                        definition=definition
-                    )
-
-                # ---------------------------------------------
-                # EXISTING CARD
-                # ---------------------------------------------
-
-                else:
-
-                    self.flashcard_service.update_flashcard(
-                        card_id=row.card_id,
-                        term=term,
-                        definition=definition
-                    )
-
         except ValueError as error:
-
             QMessageBox.warning(
                 self,
                 "Save Error",
                 str(error)
             )
-
             return
 
         except Exception as error:
-
             QMessageBox.critical(
                 self,
                 "Database Error",
-                str(error)
+                (
+                    "Không thể lưu Study Set. "
+                    "Mọi thay đổi trong lần Save này đã được rollback.\n\n"
+                    f"{error}"
+                )
             )
-
             return
 
-        # ----------------------------------------------------
-        # SUCCESS
-        # ----------------------------------------------------
+        finally:
+            self.save_button.setEnabled(
+                True
+            )
 
-        set_id = self.current_set_id
+        self.deleted_card_ids.clear()
 
         QMessageBox.information(
             self,
             "Success",
-            "Đã cập nhật Study Set."
+            "Đã cập nhật Study Set và flashcards."
         )
 
         self.saved.emit(
-            set_id
+            updated_set.id
         )
