@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
 
 from services.study_set_service import StudySetService
 from services.flashcard_service import FlashcardService
+from services.study_progress_service import StudyProgressService
 
 from ui.widgets.sidebar import Sidebar
 from ui.pages.home_page import HomePage
@@ -29,12 +30,14 @@ class MainWindow(QMainWindow):
         self,
         study_set_service: StudySetService,
         flashcard_service: FlashcardService,
+        study_progress_service: StudyProgressService,
         parent=None,
     ):
         super().__init__(parent)
 
         self.study_set_service = study_set_service
         self.flashcard_service = flashcard_service
+        self.study_progress_service = study_progress_service
 
         self.setWindowTitle("QuizLearn")
         self.resize(1200, 760)
@@ -79,6 +82,7 @@ class MainWindow(QMainWindow):
         self.study_set_detail_page = StudySetDetailPage(
             study_set_service=self.study_set_service,
             flashcard_service=self.flashcard_service,
+            study_progress_service=self.study_progress_service,
         )
         self.pages.addWidget(self.study_set_detail_page)
 
@@ -99,7 +103,6 @@ class MainWindow(QMainWindow):
     # ========================================================
 
     def _connect_signals(self) -> None:
-        # Sidebar - chỉ giữ navigation cấp cao.
         self.sidebar.home_clicked.connect(
             self.show_home_page
         )
@@ -107,7 +110,6 @@ class MainWindow(QMainWindow):
             self.show_create_page
         )
 
-        # Home.
         self.home_page.create_requested.connect(
             self.show_create_page
         )
@@ -118,7 +120,6 @@ class MainWindow(QMainWindow):
             self.open_edit_study_set
         )
 
-        # Create.
         self.create_page.cancel_requested.connect(
             self.show_home_page
         )
@@ -126,7 +127,6 @@ class MainWindow(QMainWindow):
             self._on_study_set_created
         )
 
-        # Study Set Detail.
         self.study_set_detail_page.back_requested.connect(
             self.show_home_page
         )
@@ -143,7 +143,6 @@ class MainWindow(QMainWindow):
             self.open_edit_study_set
         )
 
-        # Edit.
         self.edit_study_set_page.cancel_requested.connect(
             self._cancel_edit
         )
@@ -151,7 +150,6 @@ class MainWindow(QMainWindow):
             self._on_study_set_updated
         )
 
-        # Flashcards.
         self.flashcard_page.back_requested.connect(
             self._back_from_flashcards
         )
@@ -207,8 +205,6 @@ class MainWindow(QMainWindow):
             set_id
         )
 
-        # FlashcardPage tự hiển thị dialog nếu load thất bại. Chỉ route
-        # sau khi current_set_id đã trùng với set được yêu cầu.
         if self.flashcard_page.current_set_id != set_id:
             return
 
@@ -293,7 +289,6 @@ class MainWindow(QMainWindow):
         self,
         set_id: int,
     ) -> None:
-        """Sau Create, đưa người dùng vào StudySetDetailPage."""
         self.home_page.refresh()
         self.open_study_set_detail(
             set_id
@@ -303,7 +298,6 @@ class MainWindow(QMainWindow):
         self,
         set_id: int,
     ) -> None:
-        """Refresh các view liên quan rồi quay về StudySetDetailPage."""
         self.home_page.refresh()
 
         if self.flashcard_page.current_set_id == set_id:
