@@ -8,7 +8,11 @@ from models.flashcard import Flashcard
 from repositories.flashcard_repository import FlashcardRepository
 from repositories.study_progress_repository import StudyProgressRepository
 from repositories.study_set_repository import StudySetRepository
-from services.learning_service import LearningService
+from services.learning_service import (
+    DIRECTION_DEFINITION_TO_TERM,
+    DIRECTION_TERM_TO_DEFINITION,
+    LearningService,
+)
 from services.study_progress_service import StudyProgressService
 from services.study_set_service import StudySetService
 
@@ -54,26 +58,56 @@ class LearningServiceTest(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
 
-    def test_check_answer_ignores_case_and_spaces(self) -> None:
-        correct, _ = self.learning_service.check_answer(
+    def test_term_to_definition_ignores_case_and_spaces(self) -> None:
+        result = self.learning_service.check_answer(
             self.card,
             "  MUA  ",
+            direction=DIRECTION_TERM_TO_DEFINITION,
         )
-        self.assertTrue(correct)
+        self.assertTrue(result.is_correct)
+        self.assertFalse(result.accepted_with_typo)
 
-    def test_check_answer_accepts_definition_alternative(self) -> None:
-        correct, _ = self.learning_service.check_answer(
+    def test_term_to_definition_accepts_alternative(self) -> None:
+        result = self.learning_service.check_answer(
             self.card,
             "mua sắm",
+            direction=DIRECTION_TERM_TO_DEFINITION,
         )
-        self.assertTrue(correct)
+        self.assertTrue(result.is_correct)
+
+    def test_definition_to_term_accepts_term(self) -> None:
+        result = self.learning_service.check_answer(
+            self.card,
+            "PURCHASE",
+            direction=DIRECTION_DEFINITION_TO_TERM,
+        )
+        self.assertTrue(result.is_correct)
+        self.assertEqual(result.canonical_answer, "purchase")
+
+    def test_minor_typo_is_accepted_for_long_word(self) -> None:
+        result = self.learning_service.check_answer(
+            self.card,
+            "purchse",
+            direction=DIRECTION_DEFINITION_TO_TERM,
+        )
+        self.assertTrue(result.is_correct)
+        self.assertTrue(result.accepted_with_typo)
+
+    def test_short_answer_is_not_fuzzy_matched(self) -> None:
+        result = self.learning_service.check_answer(
+            self.card,
+            "ban",
+            direction=DIRECTION_TERM_TO_DEFINITION,
+        )
+        self.assertFalse(result.is_correct)
 
     def test_wrong_answer_is_rejected(self) -> None:
-        correct, _ = self.learning_service.check_answer(
+        result = self.learning_service.check_answer(
             self.card,
-            "bán",
+            "sell",
+            direction=DIRECTION_DEFINITION_TO_TERM,
         )
-        self.assertFalse(correct)
+        self.assertFalse(result.is_correct)
 
     def test_empty_answer_is_rejected(self) -> None:
         with self.assertRaises(ValueError):
@@ -82,12 +116,21 @@ class LearningServiceTest(unittest.TestCase):
                 "   ",
             )
 
+    def test_invalid_direction_is_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            self.learning_service.check_answer(
+                self.card,
+                "mua",
+                direction="invalid",
+            )
+
     def test_submit_answer_records_progress(self) -> None:
-        correct, _ = self.learning_service.submit_answer(
+        result = self.learning_service.submit_answer(
             self.card,
             "mua",
+            direction=DIRECTION_TERM_TO_DEFINITION,
         )
-        self.assertTrue(correct)
+        self.assertTrue(result.is_correct)
 
         progress = self.progress_repository.get_by_flashcard_id(
             self.card.id
