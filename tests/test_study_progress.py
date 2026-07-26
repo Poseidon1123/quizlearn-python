@@ -5,6 +5,14 @@ from pathlib import Path
 from database.database import Database
 from database.schema import create_tables
 from models.flashcard import Flashcard
+from models.study_progress import (
+    RATING_AGAIN,
+    RATING_EASY,
+    RATING_GOOD,
+    RATING_HARD,
+    STATUS_LEARNING,
+    STATUS_REVIEW,
+)
 from repositories.flashcard_repository import FlashcardRepository
 from repositories.study_progress_repository import StudyProgressRepository
 from repositories.study_set_repository import StudySetRepository
@@ -82,14 +90,56 @@ class StudyProgressTest(unittest.TestCase):
         self.assertEqual(progress.review_count, 1)
         self.assertEqual(progress.correct_count, 0)
         self.assertEqual(progress.wrong_count, 1)
-        self.assertEqual(progress.status, "LEARNING")
+        self.assertEqual(progress.status, STATUS_LEARNING)
         self.assertIsNotNone(progress.last_review)
 
-    def test_progress_is_deleted_with_flashcard(self) -> None:
-        self.progress_service.get_or_create_for_flashcard(
-            self.card.id
+    def test_again_marks_learning_and_schedules_short_review(self) -> None:
+        progress = self.progress_service.review_flashcard(
+            self.card.id,
+            RATING_AGAIN,
         )
 
+        self.assertEqual(progress.review_count, 1)
+        self.assertEqual(progress.wrong_count, 1)
+        self.assertEqual(progress.correct_count, 0)
+        self.assertEqual(progress.status, STATUS_LEARNING)
+        self.assertEqual(progress.interval_days, 0)
+        self.assertIsNotNone(progress.next_review)
+        self.assertGreater(progress.next_review, progress.last_review)
+
+    def test_hard_good_easy_update_schedule(self) -> None:
+        hard = self.progress_service.review_flashcard(
+            self.card.id,
+            RATING_HARD,
+        )
+        self.assertEqual(hard.interval_days, 1)
+        self.assertEqual(hard.status, STATUS_REVIEW)
+
+        good = self.progress_service.review_flashcard(
+            self.card.id,
+            RATING_GOOD,
+        )
+        self.assertGreaterEqual(good.interval_days, 2)
+        self.assertEqual(good.correct_count, 2)
+
+        ease_before = good.ease_factor
+        easy = self.progress_service.review_flashcard(
+            self.card.id,
+            RATING_EASY,
+        )
+        self.assertGreater(easy.interval_days, good.interval_days)
+        self.assertGreater(easy.ease_factor, ease_before)
+        self.assertEqual(easy.review_count, 3)
+
+    def test_invalid_rating_is_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            self.progress_service.review_flashcard(
+                self.card.id,
+                "PERFECT",
+            )
+
+    def test_progress_is_deleted_with_flashcard(self) -> None:
+        self.progress_service.get_or_create_for_flashcard(self.card.id)
         self.flashcard_repository.delete(self.card.id)
 
         progress = self.progress_repository.get_by_flashcard_id(
