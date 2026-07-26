@@ -1,650 +1,316 @@
-﻿from PySide6.QtWidgets import (
+from PySide6.QtWidgets import (
     QMainWindow,
     QWidget,
     QHBoxLayout,
     QStackedWidget,
-    QMessageBox
+    QMessageBox,
 )
 
 from services.study_set_service import StudySetService
 from services.flashcard_service import FlashcardService
 
 from ui.widgets.sidebar import Sidebar
-
 from ui.pages.home_page import HomePage
 from ui.pages.create_page import CreatePage
-from ui.pages.flashcard_page import FlashcardPage
 from ui.pages.edit_study_set_page import EditStudySetPage
+from ui.pages.study_set_detail_page import StudySetDetailPage
+from ui.pages.flashcard_page import FlashcardPage
 
 
 class MainWindow(QMainWindow):
     """
-    Cửa sổ chính của ứng dụng QuizLearn.
+    Cửa sổ chính của QuizLearn.
 
-    MainWindow chịu trách nhiệm:
-
-    - chứa Sidebar;
-    - chứa các Page;
-    - chuyển trang;
-    - kết nối Signal giữa các Page;
-    - điều phối dữ liệu giữa các trang.
+    MainWindow chỉ điều phối navigation giữa các page. Nghiệp vụ dữ liệu
+    được giữ trong Service, còn mỗi Page tự quản lý UI của chính nó.
     """
-
-    # ========================================================
-    # INIT
-    # ========================================================
 
     def __init__(
         self,
         study_set_service: StudySetService,
         flashcard_service: FlashcardService,
-        parent=None
+        parent=None,
     ):
         super().__init__(parent)
 
-        # ----------------------------------------------------
-        # SERVICES
-        # ----------------------------------------------------
+        self.study_set_service = study_set_service
+        self.flashcard_service = flashcard_service
 
-        self.study_set_service = (
-            study_set_service
-        )
-
-        self.flashcard_service = (
-            flashcard_service
-        )
-
-        # ----------------------------------------------------
-        # WINDOW
-        # ----------------------------------------------------
-
-        self.setWindowTitle(
-            "QuizLearn"
-        )
-
-        self.resize(
-            1200,
-            760
-        )
-
-        self.setMinimumSize(
-            900,
-            600
-        )
-
-        # ----------------------------------------------------
-        # SETUP
-        # ----------------------------------------------------
+        self.setWindowTitle("QuizLearn")
+        self.resize(1200, 760)
+        self.setMinimumSize(900, 600)
 
         self._setup_ui()
-
         self._connect_signals()
-
-        # ----------------------------------------------------
-        # DEFAULT PAGE
-        # ----------------------------------------------------
 
         self.show_home_page()
 
     # ========================================================
-    # SETUP UI
+    # UI
     # ========================================================
 
-    def _setup_ui(
-        self
-    ) -> None:
-
-        # ====================================================
-        # CENTRAL WIDGET
-        # ====================================================
-
+    def _setup_ui(self) -> None:
         central_widget = QWidget()
+        central_widget.setObjectName("CentralWidget")
+        self.setCentralWidget(central_widget)
 
-        central_widget.setObjectName(
-            "CentralWidget"
-        )
-
-        self.setCentralWidget(
-            central_widget
-        )
-
-        # ====================================================
-        # MAIN LAYOUT
-        # ====================================================
-
-        main_layout = QHBoxLayout(
-            central_widget
-        )
-
-        main_layout.setContentsMargins(
-            0,
-            0,
-            0,
-            0
-        )
-
-        main_layout.setSpacing(
-            0
-        )
-
-        # ====================================================
-        # SIDEBAR
-        # ====================================================
+        main_layout = QHBoxLayout(central_widget)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
         self.sidebar = Sidebar()
-
-        main_layout.addWidget(
-            self.sidebar
-        )
-
-        # ====================================================
-        # PAGE STACK
-        # ====================================================
+        main_layout.addWidget(self.sidebar)
 
         self.pages = QStackedWidget()
-
-        self.pages.setObjectName(
-            "PageStack"
-        )
-
-        main_layout.addWidget(
-            self.pages,
-            1
-        )
-
-        # ====================================================
-        # HOME PAGE
-        # ====================================================
+        self.pages.setObjectName("PageStack")
+        main_layout.addWidget(self.pages, 1)
 
         self.home_page = HomePage(
-            study_set_service=(
-                self.study_set_service
-            )
+            study_set_service=self.study_set_service
         )
-
-        self.pages.addWidget(
-            self.home_page
-        )
-
-        # ====================================================
-        # CREATE PAGE
-        # ====================================================
+        self.pages.addWidget(self.home_page)
 
         self.create_page = CreatePage(
-            study_set_service=(
-                self.study_set_service
-            ),
-            flashcard_service=(
-                self.flashcard_service
-            )
+            study_set_service=self.study_set_service,
+            flashcard_service=self.flashcard_service,
         )
+        self.pages.addWidget(self.create_page)
 
-        self.pages.addWidget(
-            self.create_page
+        self.study_set_detail_page = StudySetDetailPage(
+            study_set_service=self.study_set_service,
+            flashcard_service=self.flashcard_service,
         )
+        self.pages.addWidget(self.study_set_detail_page)
 
-        # ====================================================
-        # EDIT STUDY SET PAGE
-        # ====================================================
-
-        self.edit_study_set_page = (
-            EditStudySetPage(
-                study_set_service=(
-                    self.study_set_service
-                ),
-                flashcard_service=(
-                    self.flashcard_service
-                )
-            )
+        self.edit_study_set_page = EditStudySetPage(
+            study_set_service=self.study_set_service,
+            flashcard_service=self.flashcard_service,
         )
-
-        self.pages.addWidget(
-            self.edit_study_set_page
-        )
-
-        # ====================================================
-        # FLASHCARD PAGE
-        # ====================================================
+        self.pages.addWidget(self.edit_study_set_page)
 
         self.flashcard_page = FlashcardPage(
-            study_set_service=(
-                self.study_set_service
-            ),
-            flashcard_service=(
-                self.flashcard_service
-            )
+            study_set_service=self.study_set_service,
+            flashcard_service=self.flashcard_service,
         )
-
-        self.pages.addWidget(
-            self.flashcard_page
-        )
+        self.pages.addWidget(self.flashcard_page)
 
     # ========================================================
-    # CONNECT SIGNALS
+    # SIGNALS
     # ========================================================
 
-    def _connect_signals(
-        self
-    ) -> None:
-
-        # ====================================================
-        # SIDEBAR
-        # ====================================================
-
+    def _connect_signals(self) -> None:
+        # Sidebar - chỉ giữ navigation cấp cao.
         self.sidebar.home_clicked.connect(
             self.show_home_page
         )
-
-        self.sidebar.library_clicked.connect(
-            self.show_home_page
-        )
-
         self.sidebar.create_clicked.connect(
             self.show_create_page
         )
 
-        self.sidebar.flashcards_clicked.connect(
-            self.show_flashcard_page
-        )
-
-        # ====================================================
-        # HOME PAGE
-        # ====================================================
-
+        # Home.
         self.home_page.create_requested.connect(
             self.show_create_page
         )
-
         self.home_page.study_set_opened.connect(
-            self.open_study_set
+            self.open_study_set_detail
         )
-
         self.home_page.study_set_edit_requested.connect(
             self.open_edit_study_set
         )
 
-        # ====================================================
-        # CREATE PAGE
-        # ====================================================
-
+        # Create.
         self.create_page.cancel_requested.connect(
             self.show_home_page
         )
-
         self.create_page.study_set_created.connect(
             self._on_study_set_created
         )
 
-        # ====================================================
-        # EDIT STUDY SET PAGE
-        # ====================================================
+        # Study Set Detail.
+        self.study_set_detail_page.back_requested.connect(
+            self.show_home_page
+        )
+        self.study_set_detail_page.flashcards_requested.connect(
+            self.open_flashcards
+        )
+        self.study_set_detail_page.learn_requested.connect(
+            self.open_learn_mode
+        )
+        self.study_set_detail_page.test_requested.connect(
+            self.open_test_mode
+        )
+        self.study_set_detail_page.edit_requested.connect(
+            self.open_edit_study_set
+        )
 
+        # Edit.
         self.edit_study_set_page.cancel_requested.connect(
             self._cancel_edit
         )
-
         self.edit_study_set_page.saved.connect(
             self._on_study_set_updated
         )
 
-        # ====================================================
-        # FLASHCARD PAGE
-        # ====================================================
-
+        # Flashcards.
         self.flashcard_page.back_requested.connect(
-            self.show_home_page
+            self._back_from_flashcards
         )
 
     # ========================================================
-    # SHOW HOME
+    # TOP-LEVEL NAVIGATION
     # ========================================================
 
-    def show_home_page(
-        self
-    ) -> None:
-        """
-        Hiển thị trang Home.
-        """
-
-        try:
-
-            self.home_page.refresh()
-
-        except Exception as error:
-
-            QMessageBox.critical(
-                self,
-                "Error",
-                (
-                    "Không thể tải danh sách "
-                    f"Study Set.\n\n{error}"
-                )
-            )
-
+    def show_home_page(self) -> None:
+        self.home_page.refresh()
         self.pages.setCurrentWidget(
             self.home_page
         )
+        self.sidebar.set_active("home")
 
-        self.sidebar.set_active(
-            "home"
-        )
-
-    # ========================================================
-    # SHOW CREATE PAGE
-    # ========================================================
-
-    def show_create_page(
-        self
-    ) -> None:
-        """
-        Hiển thị trang tạo Study Set.
-        """
-
+    def show_create_page(self) -> None:
         self.pages.setCurrentWidget(
             self.create_page
         )
-
-        self.sidebar.set_active(
-            "create"
-        )
-
+        self.sidebar.set_active("create")
         self.create_page.title_input.setFocus()
 
     # ========================================================
-    # SHOW FLASHCARD PAGE
+    # STUDY SET DETAIL
     # ========================================================
 
-    def show_flashcard_page(
-        self
+    def open_study_set_detail(
+        self,
+        set_id: int,
     ) -> None:
-        """
-        Mở FlashcardPage.
-
-        Nếu đã có StudySet đang học:
-            mở lại StudySet đó.
-
-        Nếu chưa có:
-            mở StudySet đầu tiên.
-
-        Nếu chưa có StudySet nào:
-            chuyển sang Create.
-        """
-
-        # ----------------------------------------------------
-        # ĐÃ CÓ STUDY SET ĐANG HỌC
-        # ----------------------------------------------------
-
-        if (
-            self.flashcard_page.current_set_id
-            is not None
-        ):
-
-            try:
-
-                self.flashcard_page.refresh()
-
-            except Exception as error:
-
-                QMessageBox.warning(
-                    self,
-                    "Flashcards",
-                    str(error)
-                )
-
-                return
-
-            self.pages.setCurrentWidget(
-                self.flashcard_page
-            )
-
-            self.sidebar.set_active(
-                "flashcards"
-            )
-
-            self.flashcard_page.setFocus()
-
-            return
-
-        # ----------------------------------------------------
-        # CHƯA CÓ STUDY SET ĐANG HỌC
-        # ----------------------------------------------------
-
-        try:
-
-            study_sets = (
-                self.study_set_service
-                .get_all_study_sets()
-            )
-
-        except Exception as error:
-
-            QMessageBox.critical(
-                self,
-                "Database Error",
-                str(error)
-            )
-
-            return
-
-        # ----------------------------------------------------
-        # DATABASE CHƯA CÓ STUDY SET
-        # ----------------------------------------------------
-
-        if not study_sets:
-
-            QMessageBox.information(
-                self,
-                "Flashcards",
-                (
-                    "Bạn chưa có Study Set nào.\n"
-                    "Hãy tạo một bộ học trước."
-                )
-            )
-
-            self.show_create_page()
-
-            return
-
-        # ----------------------------------------------------
-        # MỞ STUDY SET ĐẦU TIÊN
-        # ----------------------------------------------------
-
-        self.open_study_set(
-            study_sets[0].id
+        """Mở dashboard của một Study Set."""
+        loaded = self.study_set_detail_page.load_study_set(
+            set_id
         )
 
+        if not loaded:
+            return
+
+        self.pages.setCurrentWidget(
+            self.study_set_detail_page
+        )
+        self.sidebar.set_active(None)
+
     # ========================================================
-    # OPEN STUDY SET
+    # FLASHCARDS
     # ========================================================
 
-    def open_study_set(
+    def open_flashcards(
         self,
-        set_id: int
+        set_id: int,
     ) -> None:
-        """
-        Mở StudySet trong FlashcardPage.
-        """
+        self.flashcard_page.load_study_set(
+            set_id
+        )
 
-        try:
-
-            self.flashcard_page.load_study_set(
-                set_id
-            )
-
-        except Exception as error:
-
-            QMessageBox.critical(
-                self,
-                "Flashcards",
-                (
-                    "Không thể mở Study Set.\n\n"
-                    f"{error}"
-                )
-            )
-
+        # FlashcardPage tự hiển thị dialog nếu load thất bại. Chỉ route
+        # sau khi current_set_id đã trùng với set được yêu cầu.
+        if self.flashcard_page.current_set_id != set_id:
             return
 
         self.pages.setCurrentWidget(
             self.flashcard_page
         )
-
-        self.sidebar.set_active(
-            "flashcards"
-        )
-
+        self.sidebar.set_active(None)
         self.flashcard_page.setFocus()
 
+    def _back_from_flashcards(self) -> None:
+        set_id = self.flashcard_page.current_set_id
+
+        if set_id is None:
+            self.show_home_page()
+            return
+
+        self.open_study_set_detail(
+            set_id
+        )
+
     # ========================================================
-    # OPEN EDIT STUDY SET
+    # EDIT
     # ========================================================
 
     def open_edit_study_set(
         self,
-        set_id: int
+        set_id: int,
     ) -> None:
-        """
-        Mở trang chỉnh sửa Study Set.
+        self.edit_study_set_page.load_study_set(
+            set_id
+        )
 
-        Trang Edit có thể sửa:
-        - Title
-        - Description
-        - Term
-        - Definition
-        - thêm Flashcard
-        - xóa Flashcard
-        """
-
-        try:
-
-            self.edit_study_set_page.load_study_set(
-                set_id
-            )
-
-        except Exception as error:
-
-            QMessageBox.critical(
-                self,
-                "Edit Study Set",
-                (
-                    "Không thể mở Study Set "
-                    "để chỉnh sửa.\n\n"
-                    f"{error}"
-                )
-            )
-
+        if self.edit_study_set_page.current_set_id != set_id:
             return
 
         self.pages.setCurrentWidget(
             self.edit_study_set_page
         )
-
-        # Edit đang thuộc khu vực Library/Home
-        self.sidebar.set_active(
-            "home"
-        )
-
+        self.sidebar.set_active(None)
         self.edit_study_set_page.title_input.setFocus()
 
-    # ========================================================
-    # CREATE SUCCESS
-    # ========================================================
+    def _cancel_edit(self) -> None:
+        set_id = self.edit_study_set_page.current_set_id
 
-    def _on_study_set_created(
-        self,
-        set_id: int
-    ) -> None:
-        """
-        Sau khi tạo StudySet:
+        if set_id is None:
+            self.show_home_page()
+            return
 
-        1. refresh Home;
-        2. mở ngay StudySet vừa tạo.
-        """
-
-        try:
-
-            self.home_page.refresh()
-
-        except Exception:
-            pass
-
-        self.open_study_set(
+        self.open_study_set_detail(
             set_id
         )
 
     # ========================================================
-    # EDIT SUCCESS
+    # FUTURE STUDY MODES
     # ========================================================
+
+    def open_learn_mode(
+        self,
+        set_id: int,
+    ) -> None:
+        QMessageBox.information(
+            self,
+            "Learn Mode",
+            "Learn Mode sẽ được triển khai ở bước tiếp theo.",
+        )
+
+    def open_test_mode(
+        self,
+        set_id: int,
+    ) -> None:
+        QMessageBox.information(
+            self,
+            "Test Mode",
+            "Test Mode sẽ được triển khai sau Learn Mode.",
+        )
+
+    # ========================================================
+    # CREATE / UPDATE CALLBACKS
+    # ========================================================
+
+    def _on_study_set_created(
+        self,
+        set_id: int,
+    ) -> None:
+        """Sau Create, đưa người dùng vào StudySetDetailPage."""
+        self.home_page.refresh()
+        self.open_study_set_detail(
+            set_id
+        )
 
     def _on_study_set_updated(
         self,
-        set_id: int
+        set_id: int,
     ) -> None:
-        """
-        Sau khi sửa StudySet:
+        """Refresh các view liên quan rồi quay về StudySetDetailPage."""
+        self.home_page.refresh()
 
-        - refresh Home;
-        - refresh FlashcardPage;
-        - đảm bảo các card vừa sửa được load lại;
-        - quay về Home.
-        """
-
-        # ----------------------------------------------------
-        # REFRESH HOME
-        # ----------------------------------------------------
-
-        try:
-
-            self.home_page.refresh()
-
-        except Exception as error:
-
-            print(
-                "[WARNING] "
-                "Không thể refresh Home:",
-                error
+        if self.flashcard_page.current_set_id == set_id:
+            self.flashcard_page.load_study_set(
+                set_id
             )
 
-        # ----------------------------------------------------
-        # REFRESH FLASHCARD PAGE
-        # ----------------------------------------------------
-
-        if (
-            self.flashcard_page.current_set_id
-            == set_id
-        ):
-
-            try:
-
-                self.flashcard_page.load_study_set(
-                    set_id
-                )
-
-            except Exception as error:
-
-                print(
-                    "[WARNING] "
-                    "Không thể refresh FlashcardPage:",
-                    error
-                )
-
-        # ----------------------------------------------------
-        # HOME
-        # ----------------------------------------------------
-
-        self.show_home_page()
-
-    # ========================================================
-    # CANCEL EDIT
-    # ========================================================
-
-    def _cancel_edit(
-        self
-    ) -> None:
-        """
-        Hủy chỉnh sửa.
-
-        Vì EditStudySetPage chỉ ghi database khi Save,
-        nên Cancel chỉ cần quay về Home.
-        """
-
-        self.show_home_page()
+        self.open_study_set_detail(
+            set_id
+        )
