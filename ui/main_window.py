@@ -3,13 +3,13 @@ from PySide6.QtWidgets import (
     QWidget,
     QHBoxLayout,
     QStackedWidget,
-    QMessageBox,
 )
 
 from services.study_set_service import StudySetService
 from services.flashcard_service import FlashcardService
 from services.study_progress_service import StudyProgressService
 from services.learning_service import LearningService
+from services.test_service import TestService
 
 from ui.widgets.sidebar import Sidebar
 from ui.pages.home_page import HomePage
@@ -18,6 +18,7 @@ from ui.pages.edit_study_set_page import EditStudySetPage
 from ui.pages.study_set_detail_page import StudySetDetailPage
 from ui.pages.flashcard_page import FlashcardPage
 from ui.pages.learn_page import LearnPage
+from ui.pages.test_page import TestPage
 
 
 class MainWindow(QMainWindow):
@@ -29,6 +30,7 @@ class MainWindow(QMainWindow):
         flashcard_service: FlashcardService,
         study_progress_service: StudyProgressService,
         learning_service: LearningService,
+        test_service: TestService,
         parent=None,
     ):
         super().__init__(parent)
@@ -37,6 +39,7 @@ class MainWindow(QMainWindow):
         self.flashcard_service = flashcard_service
         self.study_progress_service = study_progress_service
         self.learning_service = learning_service
+        self.test_service = test_service
 
         self.setWindowTitle("QuizLearn")
         self.resize(1200, 760)
@@ -100,6 +103,13 @@ class MainWindow(QMainWindow):
         )
         self.pages.addWidget(self.learn_page)
 
+        self.test_page = TestPage(
+            study_set_service=self.study_set_service,
+            flashcard_service=self.flashcard_service,
+            test_service=self.test_service,
+        )
+        self.pages.addWidget(self.test_page)
+
     def _connect_signals(self) -> None:
         self.sidebar.home_clicked.connect(self.show_home_page)
         self.sidebar.create_clicked.connect(self.show_create_page)
@@ -130,6 +140,7 @@ class MainWindow(QMainWindow):
 
         self.flashcard_page.back_requested.connect(self._back_from_flashcards)
         self.learn_page.back_requested.connect(self._back_from_learn)
+        self.test_page.back_requested.connect(self._back_from_test)
 
     def show_home_page(self) -> None:
         self.home_page.refresh()
@@ -182,7 +193,23 @@ class MainWindow(QMainWindow):
             self.show_home_page()
             return
 
-        # Detail được load lại để progress vừa học xuất hiện ngay.
+        self.open_study_set_detail(set_id)
+
+    def open_test_mode(self, set_id: int) -> None:
+        loaded = self.test_page.load_study_set(set_id)
+        if not loaded:
+            return
+
+        self.pages.setCurrentWidget(self.test_page)
+        self.sidebar.set_active(None)
+        self.test_page.answer_input.setFocus()
+
+    def _back_from_test(self) -> None:
+        set_id = self.test_page.current_set_id
+        if set_id is None:
+            self.show_home_page()
+            return
+
         self.open_study_set_detail(set_id)
 
     def open_edit_study_set(self, set_id: int) -> None:
@@ -203,13 +230,6 @@ class MainWindow(QMainWindow):
 
         self.open_study_set_detail(set_id)
 
-    def open_test_mode(self, set_id: int) -> None:
-        QMessageBox.information(
-            self,
-            "Test Mode",
-            "Test Mode sẽ được triển khai sau Learn Mode.",
-        )
-
     def _on_study_set_created(self, set_id: int) -> None:
         self.home_page.refresh()
         self.open_study_set_detail(set_id)
@@ -221,7 +241,9 @@ class MainWindow(QMainWindow):
             self.flashcard_page.load_study_set(set_id)
 
         if self.learn_page.current_set_id == set_id:
-            # Không tự bắt đầu session mới; chỉ giữ set_id hợp lệ.
             self.learn_page.current_set_id = set_id
+
+        if self.test_page.current_set_id == set_id:
+            self.test_page.current_set_id = set_id
 
         self.open_study_set_detail(set_id)
