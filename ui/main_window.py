@@ -45,12 +45,7 @@ class MainWindow(QMainWindow):
 
         self._setup_ui()
         self._connect_signals()
-
         self.show_home_page()
-
-    # ========================================================
-    # UI
-    # ========================================================
 
     def _setup_ui(self) -> None:
         central_widget = QWidget()
@@ -95,41 +90,22 @@ class MainWindow(QMainWindow):
         self.flashcard_page = FlashcardPage(
             study_set_service=self.study_set_service,
             flashcard_service=self.flashcard_service,
+            study_progress_service=self.study_progress_service,
         )
         self.pages.addWidget(self.flashcard_page)
 
-    # ========================================================
-    # SIGNALS
-    # ========================================================
-
     def _connect_signals(self) -> None:
-        self.sidebar.home_clicked.connect(
-            self.show_home_page
-        )
-        self.sidebar.create_clicked.connect(
-            self.show_create_page
-        )
+        self.sidebar.home_clicked.connect(self.show_home_page)
+        self.sidebar.create_clicked.connect(self.show_create_page)
 
-        self.home_page.create_requested.connect(
-            self.show_create_page
-        )
-        self.home_page.study_set_opened.connect(
-            self.open_study_set_detail
-        )
-        self.home_page.study_set_edit_requested.connect(
-            self.open_edit_study_set
-        )
+        self.home_page.create_requested.connect(self.show_create_page)
+        self.home_page.study_set_opened.connect(self.open_study_set_detail)
+        self.home_page.study_set_edit_requested.connect(self.open_edit_study_set)
 
-        self.create_page.cancel_requested.connect(
-            self.show_home_page
-        )
-        self.create_page.study_set_created.connect(
-            self._on_study_set_created
-        )
+        self.create_page.cancel_requested.connect(self.show_home_page)
+        self.create_page.study_set_created.connect(self._on_study_set_created)
 
-        self.study_set_detail_page.back_requested.connect(
-            self.show_home_page
-        )
+        self.study_set_detail_page.back_requested.connect(self.show_home_page)
         self.study_set_detail_page.flashcards_requested.connect(
             self.open_flashcards
         )
@@ -143,168 +119,87 @@ class MainWindow(QMainWindow):
             self.open_edit_study_set
         )
 
-        self.edit_study_set_page.cancel_requested.connect(
-            self._cancel_edit
-        )
-        self.edit_study_set_page.saved.connect(
-            self._on_study_set_updated
-        )
+        self.edit_study_set_page.cancel_requested.connect(self._cancel_edit)
+        self.edit_study_set_page.saved.connect(self._on_study_set_updated)
 
-        self.flashcard_page.back_requested.connect(
-            self._back_from_flashcards
-        )
-
-    # ========================================================
-    # TOP-LEVEL NAVIGATION
-    # ========================================================
+        self.flashcard_page.back_requested.connect(self._back_from_flashcards)
 
     def show_home_page(self) -> None:
         self.home_page.refresh()
-        self.pages.setCurrentWidget(
-            self.home_page
-        )
+        self.pages.setCurrentWidget(self.home_page)
         self.sidebar.set_active("home")
 
     def show_create_page(self) -> None:
-        self.pages.setCurrentWidget(
-            self.create_page
-        )
+        self.pages.setCurrentWidget(self.create_page)
         self.sidebar.set_active("create")
         self.create_page.title_input.setFocus()
 
-    # ========================================================
-    # STUDY SET DETAIL
-    # ========================================================
-
-    def open_study_set_detail(
-        self,
-        set_id: int,
-    ) -> None:
-        """Mở dashboard của một Study Set."""
-        loaded = self.study_set_detail_page.load_study_set(
-            set_id
-        )
-
+    def open_study_set_detail(self, set_id: int) -> None:
+        loaded = self.study_set_detail_page.load_study_set(set_id)
         if not loaded:
             return
 
-        self.pages.setCurrentWidget(
-            self.study_set_detail_page
-        )
+        self.pages.setCurrentWidget(self.study_set_detail_page)
         self.sidebar.set_active(None)
 
-    # ========================================================
-    # FLASHCARDS
-    # ========================================================
-
-    def open_flashcards(
-        self,
-        set_id: int,
-    ) -> None:
-        self.flashcard_page.load_study_set(
-            set_id
-        )
+    def open_flashcards(self, set_id: int) -> None:
+        self.flashcard_page.load_study_set(set_id)
 
         if self.flashcard_page.current_set_id != set_id:
             return
 
-        self.pages.setCurrentWidget(
-            self.flashcard_page
-        )
+        self.pages.setCurrentWidget(self.flashcard_page)
         self.sidebar.set_active(None)
         self.flashcard_page.setFocus()
 
     def _back_from_flashcards(self) -> None:
         set_id = self.flashcard_page.current_set_id
-
         if set_id is None:
             self.show_home_page()
             return
 
-        self.open_study_set_detail(
-            set_id
-        )
+        self.open_study_set_detail(set_id)
 
-    # ========================================================
-    # EDIT
-    # ========================================================
-
-    def open_edit_study_set(
-        self,
-        set_id: int,
-    ) -> None:
-        self.edit_study_set_page.load_study_set(
-            set_id
-        )
+    def open_edit_study_set(self, set_id: int) -> None:
+        self.edit_study_set_page.load_study_set(set_id)
 
         if self.edit_study_set_page.current_set_id != set_id:
             return
 
-        self.pages.setCurrentWidget(
-            self.edit_study_set_page
-        )
+        self.pages.setCurrentWidget(self.edit_study_set_page)
         self.sidebar.set_active(None)
         self.edit_study_set_page.title_input.setFocus()
 
     def _cancel_edit(self) -> None:
         set_id = self.edit_study_set_page.current_set_id
-
         if set_id is None:
             self.show_home_page()
             return
 
-        self.open_study_set_detail(
-            set_id
-        )
+        self.open_study_set_detail(set_id)
 
-    # ========================================================
-    # FUTURE STUDY MODES
-    # ========================================================
-
-    def open_learn_mode(
-        self,
-        set_id: int,
-    ) -> None:
+    def open_learn_mode(self, set_id: int) -> None:
         QMessageBox.information(
             self,
             "Learn Mode",
             "Learn Mode sẽ được triển khai ở bước tiếp theo.",
         )
 
-    def open_test_mode(
-        self,
-        set_id: int,
-    ) -> None:
+    def open_test_mode(self, set_id: int) -> None:
         QMessageBox.information(
             self,
             "Test Mode",
             "Test Mode sẽ được triển khai sau Learn Mode.",
         )
 
-    # ========================================================
-    # CREATE / UPDATE CALLBACKS
-    # ========================================================
-
-    def _on_study_set_created(
-        self,
-        set_id: int,
-    ) -> None:
+    def _on_study_set_created(self, set_id: int) -> None:
         self.home_page.refresh()
-        self.open_study_set_detail(
-            set_id
-        )
+        self.open_study_set_detail(set_id)
 
-    def _on_study_set_updated(
-        self,
-        set_id: int,
-    ) -> None:
+    def _on_study_set_updated(self, set_id: int) -> None:
         self.home_page.refresh()
 
         if self.flashcard_page.current_set_id == set_id:
-            self.flashcard_page.load_study_set(
-                set_id
-            )
+            self.flashcard_page.load_study_set(set_id)
 
-        self.open_study_set_detail(
-            set_id
-        )
+        self.open_study_set_detail(set_id)
