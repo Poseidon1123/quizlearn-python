@@ -69,7 +69,6 @@ def create_database() -> Database:
         / "quizlet.db"
     )
 
-    # Đảm bảo thư mục data tồn tại
     database_path.parent.mkdir(
         parents=True,
         exist_ok=True
@@ -94,16 +93,12 @@ def create_repositories(
     database: Database
 ):
 
-    study_set_repository = (
-        StudySetRepository(
-            database
-        )
+    study_set_repository = StudySetRepository(
+        database
     )
 
-    flashcard_repository = (
-        FlashcardRepository(
-            database
-        )
+    flashcard_repository = FlashcardRepository(
+        database
     )
 
     return {
@@ -120,8 +115,11 @@ def create_services(
     repositories
 ):
 
+    # StudySetService nhận cả hai repository vì nó quản lý use case
+    # lưu toàn bộ StudySet + Flashcards trong một transaction.
     study_set_service = StudySetService(
-        repositories["study_set"]
+        repositories["study_set"],
+        repositories["flashcard"]
     )
 
     flashcard_service = FlashcardService(
@@ -141,10 +139,6 @@ def create_services(
 
 def main() -> int:
 
-    # --------------------------------------------------------
-    # QApplication
-    # --------------------------------------------------------
-
     app = QApplication(
         sys.argv
     )
@@ -157,45 +151,19 @@ def main() -> int:
         "QuizletPython"
     )
 
-    # --------------------------------------------------------
-    # Stylesheet
-    # --------------------------------------------------------
-
     load_stylesheet(
         app
     )
 
-    # --------------------------------------------------------
-    # Database
-    # --------------------------------------------------------
+    database = create_database()
 
-    database = (
-        create_database()
+    repositories = create_repositories(
+        database
     )
 
-    # --------------------------------------------------------
-    # Repository
-    # --------------------------------------------------------
-
-    repositories = (
-        create_repositories(
-            database
-        )
+    services = create_services(
+        repositories
     )
-
-    # --------------------------------------------------------
-    # Services
-    # --------------------------------------------------------
-
-    services = (
-        create_services(
-            repositories
-        )
-    )
-
-    # --------------------------------------------------------
-    # Main Window
-    # --------------------------------------------------------
 
     window = MainWindow(
         study_set_service=services[
@@ -208,10 +176,6 @@ def main() -> int:
 
     window.show()
 
-    # --------------------------------------------------------
-    # Run app
-    # --------------------------------------------------------
-
     return app.exec()
 
 
@@ -220,7 +184,6 @@ def main() -> int:
 # ============================================================
 
 if __name__ == "__main__":
-
     sys.exit(
         main()
     )
