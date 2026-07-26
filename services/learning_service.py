@@ -27,7 +27,8 @@ class LearningService:
         - không phân biệt hoa/thường;
         - chuẩn hóa Unicode;
         - bỏ dấu câu nhẹ ở đầu/cuối;
-        - Definition có thể chứa nhiều đáp án ngăn bởi ; | / hoặc xuống dòng.
+        - Definition có thể chứa nhiều đáp án ngăn bởi dấu phẩy,
+          chấm phẩy, |, / hoặc xuống dòng.
 
         Trả về (is_correct, canonical_answer).
         """
@@ -70,7 +71,7 @@ class LearningService:
 
     @staticmethod
     def _split_accepted_answers(definition: str) -> list[str]:
-        parts = re.split(r"[;|/\n]+", definition)
+        parts = re.split(r"[,;|/\n]+", definition)
         answers = [part.strip() for part in parts if part.strip()]
         return answers or [definition.strip()]
 
