@@ -1,4 +1,4 @@
-﻿import random
+import random
 
 from PySide6.QtCore import Signal, Qt
 from PySide6.QtWidgets import (
@@ -9,999 +9,589 @@ from PySide6.QtWidgets import (
     QPushButton,
     QFrame,
     QMessageBox,
-    QSizePolicy
+    QSizePolicy,
+    QProgressBar,
 )
 
+from models.study_progress import (
+    RATING_AGAIN,
+    RATING_EASY,
+    RATING_GOOD,
+    RATING_HARD,
+)
 from services.study_set_service import StudySetService
 from services.flashcard_service import FlashcardService
+from services.study_progress_service import StudyProgressService
 
-
-# ============================================================
-# FLASHCARD WIDGET
-# ============================================================
 
 class FlashcardWidget(QFrame):
-    """
-    Widget hiển thị một flashcard.
-
-    Click vào card để chuyển giữa:
-        Term <-> Definition
-    """
+    """Flashcard có thể lật giữa Term và Definition."""
 
     flipped = Signal(bool)
 
-    def __init__(
-        self,
-        parent=None
-    ):
+    def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.setObjectName(
-            "Flashcard"
-        )
-
-        self.setCursor(
-            Qt.PointingHandCursor
-        )
-
-        self.setMinimumHeight(
-            320
-        )
-
+        self.setObjectName("Flashcard")
+        self.setCursor(Qt.PointingHandCursor)
+        self.setMinimumHeight(300)
         self.setSizePolicy(
             QSizePolicy.Expanding,
-            QSizePolicy.Expanding
+            QSizePolicy.Expanding,
         )
 
         self.term = ""
         self.definition = ""
-
         self.showing_definition = False
 
-        self._setup_ui()
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(50, 45, 50, 45)
+        layout.addStretch()
 
-    # ========================================================
-    # SETUP UI
-    # ========================================================
+        self.side_label = QLabel("TERM")
+        self.side_label.setObjectName("FlashcardSide")
+        self.side_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.side_label)
+        layout.addSpacing(18)
 
-    def _setup_ui(
-        self
-    ) -> None:
-
-        layout = QVBoxLayout(
-            self
-        )
-
-        layout.setContentsMargins(
-            50,
-            50,
-            50,
-            50
-        )
+        self.text_label = QLabel("")
+        self.text_label.setObjectName("FlashcardText")
+        self.text_label.setAlignment(Qt.AlignCenter)
+        self.text_label.setWordWrap(True)
+        self.text_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        layout.addWidget(self.text_label)
 
         layout.addStretch()
 
-        # ----------------------------------------------------
-        # SIDE LABEL
-        # ----------------------------------------------------
+        self.hint_label = QLabel("Click the card or press Space to flip")
+        self.hint_label.setObjectName("FlashcardHint")
+        self.hint_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.hint_label)
 
-        self.side_label = QLabel(
-            "TERM"
-        )
-
-        self.side_label.setObjectName(
-            "FlashcardSide"
-        )
-
-        self.side_label.setAlignment(
-            Qt.AlignCenter
-        )
-
-        layout.addWidget(
-            self.side_label
-        )
-
-        layout.addSpacing(
-            20
-        )
-
-        # ----------------------------------------------------
-        # CARD TEXT
-        # ----------------------------------------------------
-
-        self.text_label = QLabel(
-            ""
-        )
-
-        self.text_label.setObjectName(
-            "FlashcardText"
-        )
-
-        self.text_label.setAlignment(
-            Qt.AlignCenter
-        )
-
-        self.text_label.setWordWrap(
-            True
-        )
-
-        self.text_label.setTextInteractionFlags(
-            Qt.TextSelectableByMouse
-        )
-
-        layout.addWidget(
-            self.text_label
-        )
-
-        layout.addStretch()
-
-        # ----------------------------------------------------
-        # HINT
-        # ----------------------------------------------------
-
-        self.hint_label = QLabel(
-            "Click the card to flip"
-        )
-
-        self.hint_label.setObjectName(
-            "FlashcardHint"
-        )
-
-        self.hint_label.setAlignment(
-            Qt.AlignCenter
-        )
-
-        layout.addWidget(
-            self.hint_label
-        )
-
-    # ========================================================
-    # SET CARD
-    # ========================================================
-
-    def set_card(
-        self,
-        term: str,
-        definition: str
-    ) -> None:
-
+    def set_card(self, term: str, definition: str) -> None:
         self.term = term
         self.definition = definition
-
         self.show_front()
 
-    # ========================================================
-    # SHOW FRONT
-    # ========================================================
-
-    def show_front(
-        self
-    ) -> None:
-
+    def show_front(self) -> None:
         self.showing_definition = False
+        self.side_label.setText("TERM")
+        self.text_label.setText(self.term)
+        self.flipped.emit(False)
 
-        self.side_label.setText(
-            "TERM"
-        )
-
-        self.text_label.setText(
-            self.term
-        )
-
-        self.flipped.emit(
-            False
-        )
-
-    # ========================================================
-    # SHOW BACK
-    # ========================================================
-
-    def show_back(
-        self
-    ) -> None:
-
+    def show_back(self) -> None:
         self.showing_definition = True
+        self.side_label.setText("DEFINITION")
+        self.text_label.setText(self.definition)
+        self.flipped.emit(True)
 
-        self.side_label.setText(
-            "DEFINITION"
-        )
-
-        self.text_label.setText(
-            self.definition
-        )
-
-        self.flipped.emit(
-            True
-        )
-
-    # ========================================================
-    # FLIP
-    # ========================================================
-
-    def flip(
-        self
-    ) -> None:
-
+    def flip(self) -> None:
         if self.showing_definition:
-
             self.show_front()
-
         else:
-
             self.show_back()
 
-    # ========================================================
-    # MOUSE CLICK
-    # ========================================================
-
-    def mousePressEvent(
-        self,
-        event
-    ) -> None:
-
+    def mousePressEvent(self, event) -> None:
         if event.button() == Qt.LeftButton:
-
             self.flip()
+        super().mousePressEvent(event)
 
-        super().mousePressEvent(
-            event
-        )
-
-
-# ============================================================
-# FLASHCARD PAGE
-# ============================================================
 
 class FlashcardPage(QWidget):
     """
-    Trang học flashcard.
+    Flashcard study mode.
+
+    Sau khi xem đáp án, người học tự đánh giá bằng Again / Hard / Good /
+    Easy. Mỗi đánh giá được ghi vào StudyProgress và tạo lịch ôn tiếp.
     """
 
     back_requested = Signal()
-
-    # ========================================================
-    # INIT
-    # ========================================================
 
     def __init__(
         self,
         study_set_service: StudySetService,
         flashcard_service: FlashcardService,
-        parent=None
+        study_progress_service: StudyProgressService,
+        parent=None,
     ):
         super().__init__(parent)
 
-        self.study_set_service = (
-            study_set_service
-        )
+        self.study_set_service = study_set_service
+        self.flashcard_service = flashcard_service
+        self.study_progress_service = study_progress_service
 
-        self.flashcard_service = (
-            flashcard_service
-        )
-
-        # Study Set hiện tại
-        self.current_set_id = None
-
-        # Danh sách flashcard
+        self.current_set_id: int | None = None
         self.cards = []
-
-        # Vị trí hiện tại
         self.current_index = 0
-
-        # Trạng thái shuffle
         self.is_shuffled = False
 
-        self._setup_ui()
+        self.reviewed_card_ids: set[int] = set()
+        self.rating_counts = {
+            RATING_AGAIN: 0,
+            RATING_HARD: 0,
+            RATING_GOOD: 0,
+            RATING_EASY: 0,
+        }
+        self.session_complete_shown = False
 
+        self._setup_ui()
         self._show_empty_state()
 
     # ========================================================
-    # SETUP UI
+    # UI
     # ========================================================
 
-    def _setup_ui(
-        self
-    ) -> None:
+    def _setup_ui(self) -> None:
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(40, 25, 40, 25)
+        main_layout.setSpacing(14)
 
-        main_layout = QVBoxLayout(
-            self
-        )
+        header = QHBoxLayout()
 
-        main_layout.setContentsMargins(
-            40,
-            30,
-            40,
-            30
-        )
+        self.back_button = QPushButton("← Back")
+        self.back_button.setObjectName("SecondaryButton")
+        self.back_button.setCursor(Qt.PointingHandCursor)
+        self.back_button.clicked.connect(self.back_requested.emit)
+        header.addWidget(self.back_button)
 
-        main_layout.setSpacing(
-            20
-        )
+        header.addSpacing(15)
 
-        # ====================================================
-        # HEADER
-        # ====================================================
+        self.title_label = QLabel("Flashcards")
+        self.title_label.setObjectName("PageTitle")
+        header.addWidget(self.title_label)
+        header.addStretch()
 
-        header_layout = QHBoxLayout()
+        self.shuffle_button = QPushButton("Shuffle")
+        self.shuffle_button.setObjectName("SecondaryButton")
+        self.shuffle_button.setCheckable(True)
+        self.shuffle_button.setCursor(Qt.PointingHandCursor)
+        self.shuffle_button.clicked.connect(self._toggle_shuffle)
+        header.addWidget(self.shuffle_button)
 
-        # ----------------------------------------------------
-        # BACK
-        # ----------------------------------------------------
+        main_layout.addLayout(header)
 
-        self.back_button = QPushButton(
-            "← Back"
-        )
+        self.description_label = QLabel("")
+        self.description_label.setObjectName("SecondaryText")
+        self.description_label.setWordWrap(True)
+        main_layout.addWidget(self.description_label)
 
-        self.back_button.setObjectName(
-            "SecondaryButton"
-        )
+        # Session progress.
+        progress_header = QHBoxLayout()
 
-        self.back_button.setCursor(
-            Qt.PointingHandCursor
-        )
+        self.counter_label = QLabel("0 / 0")
+        self.counter_label.setObjectName("FlashcardCounter")
+        progress_header.addWidget(self.counter_label)
 
-        self.back_button.clicked.connect(
-            self.back_requested.emit
-        )
+        progress_header.addStretch()
 
-        header_layout.addWidget(
-            self.back_button
-        )
+        self.progress_text_label = QLabel("0 reviewed")
+        self.progress_text_label.setObjectName("SecondaryText")
+        progress_header.addWidget(self.progress_text_label)
 
-        header_layout.addSpacing(
-            15
-        )
+        main_layout.addLayout(progress_header)
 
-        # ----------------------------------------------------
-        # STUDY SET TITLE
-        # ----------------------------------------------------
+        self.session_progress = QProgressBar()
+        self.session_progress.setObjectName("StudyProgressBar")
+        self.session_progress.setRange(0, 1)
+        self.session_progress.setValue(0)
+        self.session_progress.setTextVisible(False)
+        self.session_progress.setFixedHeight(8)
+        main_layout.addWidget(self.session_progress)
 
-        self.title_label = QLabel(
-            "Flashcards"
-        )
-
-        self.title_label.setObjectName(
-            "PageTitle"
-        )
-
-        header_layout.addWidget(
-            self.title_label
-        )
-
-        header_layout.addStretch()
-
-        # ----------------------------------------------------
-        # SHUFFLE
-        # ----------------------------------------------------
-
-        self.shuffle_button = QPushButton(
-            "Shuffle"
-        )
-
-        self.shuffle_button.setObjectName(
-            "SecondaryButton"
-        )
-
-        self.shuffle_button.setCheckable(
-            True
-        )
-
-        self.shuffle_button.setCursor(
-            Qt.PointingHandCursor
-        )
-
-        self.shuffle_button.clicked.connect(
-            self._toggle_shuffle
-        )
-
-        header_layout.addWidget(
-            self.shuffle_button
-        )
-
-        main_layout.addLayout(
-            header_layout
-        )
-
-        # ====================================================
-        # DESCRIPTION
-        # ====================================================
-
-        self.description_label = QLabel(
-            ""
-        )
-
-        self.description_label.setObjectName(
-            "SecondaryText"
-        )
-
-        self.description_label.setWordWrap(
-            True
-        )
-
-        main_layout.addWidget(
-            self.description_label
-        )
-
-        # ====================================================
-        # CARD COUNTER
-        # ====================================================
-
-        self.counter_label = QLabel(
-            "0 / 0"
-        )
-
-        self.counter_label.setObjectName(
-            "FlashcardCounter"
-        )
-
-        self.counter_label.setAlignment(
-            Qt.AlignCenter
-        )
-
-        main_layout.addWidget(
-            self.counter_label
-        )
-
-        # ====================================================
-        # FLASHCARD
-        # ====================================================
-
+        # Card.
         self.flashcard = FlashcardWidget()
-
-        main_layout.addWidget(
-            self.flashcard,
-            1
-        )
-
-        # ====================================================
-        # EMPTY MESSAGE
-        # ====================================================
+        self.flashcard.flipped.connect(self._on_card_flipped)
+        main_layout.addWidget(self.flashcard, 1)
 
         self.empty_label = QLabel(
             "This study set does not contain any flashcards."
         )
+        self.empty_label.setObjectName("EmptyMessage")
+        self.empty_label.setAlignment(Qt.AlignCenter)
+        self.empty_label.setWordWrap(True)
+        main_layout.addWidget(self.empty_label)
 
-        self.empty_label.setObjectName(
-            "EmptyMessage"
+        # Current progress / schedule information.
+        self.card_status_label = QLabel(
+            "Flip the card, then rate how well you remembered it."
+        )
+        self.card_status_label.setObjectName("SecondaryText")
+        self.card_status_label.setAlignment(Qt.AlignCenter)
+        main_layout.addWidget(self.card_status_label)
+
+        # Rating buttons.
+        rating_layout = QHBoxLayout()
+        rating_layout.addStretch()
+
+        self.again_button = self._create_rating_button(
+            "1  Again",
+            "AgainButton",
+            RATING_AGAIN,
+        )
+        self.hard_button = self._create_rating_button(
+            "2  Hard",
+            "HardButton",
+            RATING_HARD,
+        )
+        self.good_button = self._create_rating_button(
+            "3  Good",
+            "GoodButton",
+            RATING_GOOD,
+        )
+        self.easy_button = self._create_rating_button(
+            "4  Easy",
+            "EasyButton",
+            RATING_EASY,
         )
 
-        self.empty_label.setAlignment(
-            Qt.AlignCenter
-        )
+        self.rating_buttons = [
+            self.again_button,
+            self.hard_button,
+            self.good_button,
+            self.easy_button,
+        ]
 
-        self.empty_label.setWordWrap(
-            True
-        )
+        for button in self.rating_buttons:
+            rating_layout.addWidget(button)
 
-        main_layout.addWidget(
-            self.empty_label
-        )
+        rating_layout.addStretch()
+        main_layout.addLayout(rating_layout)
 
-        # ====================================================
-        # NAVIGATION
-        # ====================================================
+        # Navigation remains available for free review, but rating advances
+        # automatically to the next unreviewed card.
+        navigation = QHBoxLayout()
+        navigation.addStretch()
 
-        navigation_layout = QHBoxLayout()
+        self.previous_button = QPushButton("← Previous")
+        self.previous_button.setObjectName("SecondaryButton")
+        self.previous_button.clicked.connect(self.previous_card)
+        navigation.addWidget(self.previous_button)
 
-        navigation_layout.addStretch()
+        self.flip_button = QPushButton("Flip")
+        self.flip_button.setObjectName("PrimaryButton")
+        self.flip_button.clicked.connect(self.flashcard.flip)
+        navigation.addWidget(self.flip_button)
 
-        # ----------------------------------------------------
-        # PREVIOUS
-        # ----------------------------------------------------
+        self.next_button = QPushButton("Next →")
+        self.next_button.setObjectName("SecondaryButton")
+        self.next_button.clicked.connect(self.next_card)
+        navigation.addWidget(self.next_button)
 
-        self.previous_button = QPushButton(
-            "← Previous"
-        )
-
-        self.previous_button.setObjectName(
-            "SecondaryButton"
-        )
-
-        self.previous_button.setMinimumWidth(
-            130
-        )
-
-        self.previous_button.setMinimumHeight(
-            44
-        )
-
-        self.previous_button.setCursor(
-            Qt.PointingHandCursor
-        )
-
-        self.previous_button.clicked.connect(
-            self.previous_card
-        )
-
-        navigation_layout.addWidget(
-            self.previous_button
-        )
-
-        # ----------------------------------------------------
-        # FLIP
-        # ----------------------------------------------------
-
-        self.flip_button = QPushButton(
-            "Flip"
-        )
-
-        self.flip_button.setObjectName(
-            "PrimaryButton"
-        )
-
-        self.flip_button.setMinimumWidth(
-            130
-        )
-
-        self.flip_button.setMinimumHeight(
-            44
-        )
-
-        self.flip_button.setCursor(
-            Qt.PointingHandCursor
-        )
-
-        self.flip_button.clicked.connect(
-            self.flashcard.flip
-        )
-
-        navigation_layout.addWidget(
-            self.flip_button
-        )
-
-        # ----------------------------------------------------
-        # NEXT
-        # ----------------------------------------------------
-
-        self.next_button = QPushButton(
-            "Next →"
-        )
-
-        self.next_button.setObjectName(
-            "SecondaryButton"
-        )
-
-        self.next_button.setMinimumWidth(
-            130
-        )
-
-        self.next_button.setMinimumHeight(
-            44
-        )
-
-        self.next_button.setCursor(
-            Qt.PointingHandCursor
-        )
-
-        self.next_button.clicked.connect(
-            self.next_card
-        )
-
-        navigation_layout.addWidget(
-            self.next_button
-        )
-
-        navigation_layout.addStretch()
-
-        main_layout.addLayout(
-            navigation_layout
-        )
-
-        # ====================================================
-        # KEYBOARD HINT
-        # ====================================================
+        navigation.addStretch()
+        main_layout.addLayout(navigation)
 
         self.keyboard_hint = QLabel(
-            "← Previous     Space: Flip     Next →"
+            "Space: Flip    1: Again    2: Hard    3: Good    4: Easy"
         )
+        self.keyboard_hint.setObjectName("SecondaryText")
+        self.keyboard_hint.setAlignment(Qt.AlignCenter)
+        main_layout.addWidget(self.keyboard_hint)
 
-        self.keyboard_hint.setObjectName(
-            "SecondaryText"
-        )
+        self._set_rating_enabled(False)
 
-        self.keyboard_hint.setAlignment(
-            Qt.AlignCenter
-        )
-
-        main_layout.addWidget(
-            self.keyboard_hint
-        )
-
-    # ========================================================
-    # LOAD STUDY SET
-    # ========================================================
-
-    def load_study_set(
+    def _create_rating_button(
         self,
-        set_id: int
-    ) -> None:
-        """
-        Load StudySet và toàn bộ flashcard của bộ đó.
-        """
+        text: str,
+        object_name: str,
+        rating: str,
+    ) -> QPushButton:
+        button = QPushButton(text)
+        button.setObjectName(object_name)
+        button.setMinimumWidth(125)
+        button.setMinimumHeight(46)
+        button.setCursor(Qt.PointingHandCursor)
+        button.clicked.connect(
+            lambda checked=False, value=rating: self.rate_current_card(value)
+        )
+        return button
 
+    # ========================================================
+    # LOAD / DISPLAY
+    # ========================================================
+
+    def load_study_set(self, set_id: int) -> None:
         try:
-
-            study_set = (
-                self.study_set_service
-                .get_study_set(
-                    set_id
-                )
-            )
-
-            cards = (
-                self.flashcard_service
-                .get_flashcards_by_set(
-                    set_id
-                )
-            )
-
+            study_set = self.study_set_service.get_study_set(set_id)
+            cards = self.flashcard_service.get_flashcards_by_set(set_id)
         except ValueError as error:
-
-            QMessageBox.warning(
-                self,
-                "Study Set",
-                str(error)
-            )
-
+            QMessageBox.warning(self, "Study Set", str(error))
             return
-
         except Exception as error:
-
-            QMessageBox.critical(
-                self,
-                "Database Error",
-                str(error)
-            )
-
+            QMessageBox.critical(self, "Database Error", str(error))
             return
-
-        # ----------------------------------------------------
-        # SAVE CURRENT SET
-        # ----------------------------------------------------
 
         self.current_set_id = set_id
-
-        self.cards = list(
-            cards
-        )
-
+        self.cards = list(cards)
         self.current_index = 0
-
         self.is_shuffled = False
+        self.shuffle_button.setChecked(False)
 
-        self.shuffle_button.setChecked(
-            False
-        )
+        self.reviewed_card_ids.clear()
+        for rating in self.rating_counts:
+            self.rating_counts[rating] = 0
+        self.session_complete_shown = False
 
-        # ----------------------------------------------------
-        # HEADER
-        # ----------------------------------------------------
+        self.title_label.setText(study_set.title)
+        self.description_label.setText(study_set.description or "")
+        self.description_label.setVisible(bool(study_set.description))
 
-        self.title_label.setText(
-            study_set.title
-        )
-
-        self.description_label.setText(
-            study_set.description
-        )
-
-        self.description_label.setVisible(
-            bool(study_set.description)
-        )
-
-        # ----------------------------------------------------
-        # DISPLAY
-        # ----------------------------------------------------
+        self._update_session_progress()
 
         if not self.cards:
-
             self._show_empty_state()
-
             return
 
         self._show_card()
 
-    # ========================================================
-    # SHOW CARD
-    # ========================================================
-
-    def _show_card(
-        self
-    ) -> None:
-
+    def _show_card(self) -> None:
         if not self.cards:
-
             self._show_empty_state()
-
             return
 
-        # ----------------------------------------------------
-        # CHECK INDEX
-        # ----------------------------------------------------
-
-        if self.current_index < 0:
-
-            self.current_index = 0
-
-        if self.current_index >= len(
-            self.cards
-        ):
-
-            self.current_index = (
-                len(self.cards) - 1
-            )
-
-        # ----------------------------------------------------
-        # CURRENT CARD
-        # ----------------------------------------------------
-
-        card = self.cards[
-            self.current_index
-        ]
+        self.current_index = max(
+            0,
+            min(self.current_index, len(self.cards) - 1),
+        )
+        card = self.cards[self.current_index]
 
         self.flashcard.set_card(
             term=card.term,
-            definition=card.definition
+            definition=card.definition,
         )
-
-        # ----------------------------------------------------
-        # COUNTER
-        # ----------------------------------------------------
 
         self.counter_label.setText(
-            (
-                f"{self.current_index + 1}"
-                f" / "
-                f"{len(self.cards)}"
-            )
+            f"{self.current_index + 1} / {len(self.cards)}"
         )
 
-        # ----------------------------------------------------
-        # VISIBILITY
-        # ----------------------------------------------------
+        self.flashcard.setVisible(True)
+        self.empty_label.setVisible(False)
+        self.flip_button.setEnabled(True)
+        self.shuffle_button.setEnabled(True)
 
-        self.flashcard.setVisible(
-            True
+        self.card_status_label.setText(
+            "Flip the card, then rate how well you remembered it."
         )
-
-        self.empty_label.setVisible(
-            False
-        )
-
-        self.flip_button.setEnabled(
-            True
-        )
-
-        # ----------------------------------------------------
-        # NAVIGATION STATE
-        # ----------------------------------------------------
-
+        self._set_rating_enabled(False)
         self._update_navigation_buttons()
 
-    # ========================================================
-    # EMPTY STATE
-    # ========================================================
+    def _show_empty_state(self) -> None:
+        self.flashcard.setVisible(False)
+        self.empty_label.setVisible(True)
+        self.counter_label.setText("0 / 0")
+        self.progress_text_label.setText("0 reviewed")
+        self.session_progress.setRange(0, 1)
+        self.session_progress.setValue(0)
 
-    def _show_empty_state(
-        self
-    ) -> None:
+        self.previous_button.setEnabled(False)
+        self.next_button.setEnabled(False)
+        self.flip_button.setEnabled(False)
+        self.shuffle_button.setEnabled(False)
+        self._set_rating_enabled(False)
 
-        self.flashcard.setVisible(
-            False
+    def _on_card_flipped(self, showing_definition: bool) -> None:
+        self._set_rating_enabled(
+            bool(self.cards) and showing_definition
         )
 
-        self.empty_label.setVisible(
-            True
-        )
-
-        self.counter_label.setText(
-            "0 / 0"
-        )
-
-        self.previous_button.setEnabled(
-            False
-        )
-
-        self.next_button.setEnabled(
-            False
-        )
-
-        self.flip_button.setEnabled(
-            False
-        )
-
-        self.shuffle_button.setEnabled(
-            False
-        )
-
-    # ========================================================
-    # UPDATE NAVIGATION
-    # ========================================================
-
-    def _update_navigation_buttons(
-        self
-    ) -> None:
-
-        has_cards = bool(
-            self.cards
-        )
-
-        self.shuffle_button.setEnabled(
-            has_cards
-        )
-
-        if not has_cards:
-
-            self.previous_button.setEnabled(
-                False
+        if showing_definition:
+            self.card_status_label.setText(
+                "How well did you remember this card?"
+            )
+        else:
+            self.card_status_label.setText(
+                "Flip the card before rating your recall."
             )
 
-            self.next_button.setEnabled(
-                False
+    # ========================================================
+    # RATING / STUDY PROGRESS
+    # ========================================================
+
+    def rate_current_card(self, rating: str) -> None:
+        if not self.cards or not self.flashcard.showing_definition:
+            return
+
+        card = self.cards[self.current_index]
+        if card.id is None:
+            QMessageBox.warning(
+                self,
+                "Flashcard",
+                "Flashcard chưa có ID hợp lệ.",
             )
-
             return
 
+        self._set_rating_enabled(False)
+
+        try:
+            progress = self.study_progress_service.review_flashcard(
+                flashcard_id=card.id,
+                rating=rating,
+            )
+        except ValueError as error:
+            QMessageBox.warning(self, "Study Progress", str(error))
+            self._set_rating_enabled(True)
+            return
+        except Exception as error:
+            QMessageBox.critical(self, "Database Error", str(error))
+            self._set_rating_enabled(True)
+            return
+
+        self.reviewed_card_ids.add(card.id)
+        self.rating_counts[rating] += 1
+        self._update_session_progress()
+
+        schedule_text = self._format_schedule(progress)
+        self.card_status_label.setText(
+            f"{rating.title()} · {schedule_text} · {progress.status.title()}"
+        )
+
+        if len(self.reviewed_card_ids) >= len(self.cards):
+            self._show_session_complete()
+            return
+
+        next_index = self._find_next_unreviewed_index()
+        if next_index is not None:
+            self.current_index = next_index
+            self._show_card()
+
+    def _find_next_unreviewed_index(self) -> int | None:
+        if not self.cards:
+            return None
+
+        total = len(self.cards)
+        for offset in range(1, total + 1):
+            index = (self.current_index + offset) % total
+            card_id = self.cards[index].id
+            if card_id is not None and card_id not in self.reviewed_card_ids:
+                return index
+
+        return None
+
+    def _update_session_progress(self) -> None:
+        total = len(self.cards)
+        reviewed = len(self.reviewed_card_ids)
+
+        self.session_progress.setRange(0, max(total, 1))
+        self.session_progress.setValue(reviewed)
+        self.progress_text_label.setText(
+            f"{reviewed} / {total} reviewed"
+        )
+
+    @staticmethod
+    def _format_schedule(progress) -> str:
+        if progress.interval_days == 0:
+            return "review again in about 10 min"
+        if progress.interval_days == 1:
+            return "next review in 1 day"
+        return f"next review in {progress.interval_days} days"
+
+    def _show_session_complete(self) -> None:
+        if self.session_complete_shown:
+            return
+
+        self.session_complete_shown = True
+        self._set_rating_enabled(False)
+        self.card_status_label.setText("Session complete")
+
+        QMessageBox.information(
+            self,
+            "Flashcard Session Complete",
+            (
+                f"Reviewed: {len(self.reviewed_card_ids)} / {len(self.cards)}\n\n"
+                f"Again: {self.rating_counts[RATING_AGAIN]}\n"
+                f"Hard: {self.rating_counts[RATING_HARD]}\n"
+                f"Good: {self.rating_counts[RATING_GOOD]}\n"
+                f"Easy: {self.rating_counts[RATING_EASY]}"
+            ),
+        )
+
+    def _set_rating_enabled(self, enabled: bool) -> None:
+        if not hasattr(self, "rating_buttons"):
+            return
+        for button in self.rating_buttons:
+            button.setEnabled(enabled)
+
+    # ========================================================
+    # NAVIGATION
+    # ========================================================
+
+    def _update_navigation_buttons(self) -> None:
+        has_cards = bool(self.cards)
         self.previous_button.setEnabled(
-            self.current_index > 0
+            has_cards and self.current_index > 0
         )
-
         self.next_button.setEnabled(
-            self.current_index
-            < len(self.cards) - 1
+            has_cards and self.current_index < len(self.cards) - 1
         )
+        self.shuffle_button.setEnabled(has_cards)
 
-    # ========================================================
-    # PREVIOUS
-    # ========================================================
+    def previous_card(self) -> None:
+        if self.cards and self.current_index > 0:
+            self.current_index -= 1
+            self._show_card()
 
-    def previous_card(
-        self
-    ) -> None:
+    def next_card(self) -> None:
+        if self.cards and self.current_index < len(self.cards) - 1:
+            self.current_index += 1
+            self._show_card()
 
+    def _toggle_shuffle(self) -> None:
         if not self.cards:
             return
 
-        if self.current_index <= 0:
-            return
-
-        self.current_index -= 1
-
-        self._show_card()
-
-    # ========================================================
-    # NEXT
-    # ========================================================
-
-    def next_card(
-        self
-    ) -> None:
-
-        if not self.cards:
-            return
-
-        if self.current_index >= (
-            len(self.cards) - 1
-        ):
-            return
-
-        self.current_index += 1
-
-        self._show_card()
-
-    # ========================================================
-    # SHUFFLE
-    # ========================================================
-
-    def _toggle_shuffle(
-        self
-    ) -> None:
-
-        if not self.cards:
-            return
-
-        self.is_shuffled = (
-            self.shuffle_button.isChecked()
-        )
-
-        # ----------------------------------------------------
-        # SHUFFLE ON
-        # ----------------------------------------------------
+        self.is_shuffled = self.shuffle_button.isChecked()
 
         if self.is_shuffled:
-
-            random.shuffle(
-                self.cards
-            )
-
-        # ----------------------------------------------------
-        # SHUFFLE OFF
-        # ----------------------------------------------------
-
+            random.shuffle(self.cards)
         else:
-
             try:
-
-                self.cards = (
-                    self.flashcard_service
-                    .get_flashcards_by_set(
+                self.cards = list(
+                    self.flashcard_service.get_flashcards_by_set(
                         self.current_set_id
                     )
                 )
-
             except Exception as error:
-
-                QMessageBox.warning(
-                    self,
-                    "Shuffle",
-                    str(error)
-                )
-
+                QMessageBox.warning(self, "Shuffle", str(error))
                 return
 
         self.current_index = 0
-
         self._show_card()
 
-    # ========================================================
-    # REFRESH
-    # ========================================================
-
-    def refresh(
-        self
-    ) -> None:
-        """
-        Load lại StudySet hiện tại.
-        """
-
-        if self.current_set_id is None:
-            return
-
-        self.load_study_set(
-            self.current_set_id
-        )
+    def refresh(self) -> None:
+        if self.current_set_id is not None:
+            self.load_study_set(self.current_set_id)
 
     # ========================================================
-    # KEYBOARD CONTROL
+    # KEYBOARD
     # ========================================================
 
-    def keyPressEvent(
-        self,
-        event
-    ) -> None:
+    def keyPressEvent(self, event) -> None:
+        key = event.key()
 
-        # ----------------------------------------------------
-        # LEFT
-        # ----------------------------------------------------
-
-        if event.key() == Qt.Key_Left:
-
+        if key == Qt.Key_Left:
             self.previous_card()
-
             return
 
-        # ----------------------------------------------------
-        # RIGHT
-        # ----------------------------------------------------
-
-        if event.key() == Qt.Key_Right:
-
+        if key == Qt.Key_Right:
             self.next_card()
-
             return
 
-        # ----------------------------------------------------
-        # SPACE
-        # ----------------------------------------------------
-
-        if event.key() == Qt.Key_Space:
-
+        if key == Qt.Key_Space:
             if self.cards:
-
                 self.flashcard.flip()
-
             return
 
-        super().keyPressEvent(
-            event
-        )
+        if self.flashcard.showing_definition:
+            if key == Qt.Key_1:
+                self.rate_current_card(RATING_AGAIN)
+                return
+            if key == Qt.Key_2:
+                self.rate_current_card(RATING_HARD)
+                return
+            if key == Qt.Key_3:
+                self.rate_current_card(RATING_GOOD)
+                return
+            if key == Qt.Key_4:
+                self.rate_current_card(RATING_EASY)
+                return
+
+        super().keyPressEvent(event)
