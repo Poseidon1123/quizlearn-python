@@ -10,15 +10,14 @@ class StudySetService:
     """
     Xử lý logic nghiệp vụ liên quan đến StudySet.
 
-    Ngoài CRUD StudySet thông thường, service còn quản lý use case
-    lưu đồng thời StudySet + toàn bộ thay đổi Flashcard trong một
-    transaction nguyên tử.
+    Các use case tạo/sửa StudySet kèm Flashcard đều được thực hiện
+    trong transaction để đảm bảo dữ liệu luôn nhất quán.
     """
 
     def __init__(
         self,
         repository: StudySetRepository,
-        flashcard_repository: FlashcardRepository | None = None
+        flashcard_repository: FlashcardRepository | None = None,
     ):
         self.repository = repository
         self.flashcard_repository = flashcard_repository
@@ -31,7 +30,7 @@ class StudySetService:
     @staticmethod
     def _validate_study_set_content(
         title: str,
-        description: str = ""
+        description: str = "",
     ) -> tuple[str, str]:
         title = title.strip()
         description = description.strip()
@@ -52,7 +51,7 @@ class StudySetService:
     def _validate_flashcard_content(
         term: str,
         definition: str,
-        card_number: int | None = None
+        card_number: int | None = None,
     ) -> tuple[str, str]:
         term = term.strip()
         definition = definition.strip()
@@ -86,47 +85,136 @@ class StudySetService:
         return term, definition
 
     def _require_flashcard_repository(
-        self
+        self,
     ) -> FlashcardRepository:
         if self.flashcard_repository is None:
             raise RuntimeError(
                 "StudySetService chưa được cấu hình FlashcardRepository."
             )
 
-        if (
-            self.flashcard_repository.database
-            is not self.database
-        ):
+        if self.flashcard_repository.database is not self.database:
             raise RuntimeError(
                 "StudySetRepository và FlashcardRepository phải dùng cùng Database."
             )
 
         return self.flashcard_repository
 
+    def _normalize_new_cards(
+        self,
+        cards: Iterable[tuple[str, str]],
+    ) -> list[tuple[str, str]]:
+        normalized_cards: list[tuple[str, str]] = []
+
+        for index, card in enumerate(cards, start=1):
+            if len(card) != 2:
+                raise ValueError(
+                    f"Flashcard số {index} không hợp lệ."
+                )
+
+            term, definition = card
+
+            # Cho phép UI có các dòng mới hoàn toàn trống.
+            if not term.strip() and not definition.strip():
+                continue
+
+            term, definition = self._validate_flashcard_content(
+                term,
+                definition,
+                card_number=index,
+            )
+
+            normalized_cards.append(
+                (term, definition)
+            )
+
+        if not normalized_cards:
+            raise ValueError(
+                "Study Set phải có ít nhất một flashcard."
+            )
+
+        return normalized_cards
+
     # ========================================================
-    # CREATE
+    # CREATE STUDY SET ONLY
     # ========================================================
 
     def create_study_set(
         self,
         title: str,
-        description: str = ""
+        description: str = "",
     ) -> StudySet:
-        """Tạo một StudySet mới."""
+        """Tạo riêng một StudySet, không kèm Flashcard."""
         title, description = self._validate_study_set_content(
             title,
-            description
-        )
-
-        study_set = StudySet(
-            id=None,
-            title=title,
-            description=description
+            description,
         )
 
         return self.repository.create(
-            study_set
+            StudySet(
+                id=None,
+                title=title,
+                description=description,
+            )
         )
+
+    # ========================================================
+    # CREATE STUDY SET + FLASHCARDS
+    # ========================================================
+
+    def create_study_set_with_flashcards(
+        self,
+        title: str,
+        description: str,
+        cards: Iterable[tuple[str, str]],
+    ) -> StudySet:
+        """
+        Tạo StudySet và toàn bộ Flashcard trong một transaction.
+
+        Nếu bất kỳ INSERT nào thất bại, StudySet và tất cả Flashcard
+        vừa tạo trong transaction sẽ được rollback hoàn toàn.
+        """
+        flashcard_repository = self._require_flashcard_repository()
+
+        title, description = self._validate_study_set_content(
+            title,
+            description,
+        )
+        normalized_cards = self._normalize_new_cards(cards)
+
+        with self.database.transaction():
+            study_set = self.repository.create(
+                StudySet(
+                    id=None,
+                    title=title,
+                    description=description,
+                )
+            )
+
+            if study_set.id is None:
+                raise RuntimeError(
+                    "Không thể xác định ID của Study Set vừa tạo."
+                )
+
+            for term, definition in normalized_cards:
+                flashcard_repository.create(
+                    Flashcard(
+                        id=None,
+                        set_id=study_set.id,
+                        term=term,
+                        definition=definition,
+                    )
+                )
+
+            final_set = self.repository.get_by_id(
+                study_set.id
+            )
+
+            if final_set is None:
+                raise RuntimeError(
+                    "Không thể đọc lại Study Set sau khi tạo."
+                )
+
+            return final_set
 
     # ========================================================
     # GET BY ID
@@ -134,9 +222,8 @@ class StudySetService:
 
     def get_study_set(
         self,
-        set_id: int
+        set_id: int,
     ) -> StudySet:
-        """Lấy StudySet theo ID."""
         study_set = self.repository.get_by_id(
             set_id
         )
@@ -153,9 +240,8 @@ class StudySetService:
     # ========================================================
 
     def get_all_study_sets(
-        self
+        self,
     ) -> list[StudySet]:
-        """Lấy toàn bộ StudySet."""
         return self.repository.get_all()
 
     # ========================================================
@@ -166,12 +252,11 @@ class StudySetService:
         self,
         set_id: int,
         title: str,
-        description: str = ""
+        description: str = "",
     ) -> StudySet:
-        """Cập nhật riêng title và description của StudySet."""
         title, description = self._validate_study_set_content(
             title,
-            description
+            description,
         )
 
         existing_set = self.repository.get_by_id(
@@ -207,29 +292,14 @@ class StudySetService:
         title: str,
         description: str,
         cards: list[tuple[int | None, str, str]],
-        deleted_card_ids: Iterable[int] = ()
+        deleted_card_ids: Iterable[int] = (),
     ) -> StudySet:
-        """
-        Lưu toàn bộ thay đổi của một StudySet trong một transaction.
-
-        ``cards`` có dạng::
-
-            [
-                (12, "purchase", "mua"),      # card đã tồn tại -> UPDATE
-                (None, "equipment", "thiết bị") # card mới -> INSERT
-            ]
-
-        Card mới hoàn toàn trống được bỏ qua. Card chỉ trống một phía
-        được coi là dữ liệu không hợp lệ.
-
-        Nếu bất kỳ thao tác nào thất bại, toàn bộ UPDATE/DELETE/INSERT
-        trong lần Save này sẽ rollback.
-        """
+        """Lưu toàn bộ thay đổi StudySet + Flashcard trong transaction."""
         flashcard_repository = self._require_flashcard_repository()
 
         title, description = self._validate_study_set_content(
             title,
-            description
+            description,
         )
 
         normalized_cards: list[tuple[int | None, str, str]] = []
@@ -242,7 +312,6 @@ class StudySetService:
 
             card_id, term, definition = card
 
-            # Bỏ qua dòng mới hoàn toàn trống.
             if (
                 card_id is None
                 and not term.strip()
@@ -253,7 +322,7 @@ class StudySetService:
             term, definition = self._validate_flashcard_content(
                 term,
                 definition,
-                card_number=index
+                card_number=index,
             )
 
             normalized_cards.append(
@@ -270,16 +339,13 @@ class StudySetService:
             for card_id in deleted_card_ids
         }
 
-        # Một card vừa xuất hiện trong danh sách Save vừa nằm trong danh
-        # sách Delete là trạng thái UI không hợp lệ.
         edited_ids = {
             card_id
             for card_id, _, _ in normalized_cards
             if card_id is not None
         }
 
-        conflict_ids = edited_ids & deleted_ids
-        if conflict_ids:
+        if edited_ids & deleted_ids:
             raise ValueError(
                 "Có flashcard vừa được sửa vừa được đánh dấu xóa."
             )
@@ -294,9 +360,6 @@ class StudySetService:
                     "Không tìm thấy bộ học cần cập nhật."
                 )
 
-            # ------------------------------------------------
-            # UPDATE STUDY SET
-            # ------------------------------------------------
             existing_set.title = title
             existing_set.description = description
 
@@ -309,9 +372,6 @@ class StudySetService:
                     "Không thể cập nhật bộ học."
                 )
 
-            # ------------------------------------------------
-            # DELETE CARDS
-            # ------------------------------------------------
             for card_id in deleted_ids:
                 existing_card = flashcard_repository.get_by_id(
                     card_id
@@ -331,9 +391,6 @@ class StudySetService:
                     card_id
                 )
 
-            # ------------------------------------------------
-            # CREATE / UPDATE CARDS
-            # ------------------------------------------------
             for card_id, term, definition in normalized_cards:
                 if card_id is None:
                     flashcard_repository.create(
@@ -341,7 +398,7 @@ class StudySetService:
                             id=None,
                             set_id=set_id,
                             term=term,
-                            definition=definition
+                            definition=definition,
                         )
                     )
                     continue
@@ -372,7 +429,6 @@ class StudySetService:
                         f"Không thể cập nhật flashcard ID {card_id}."
                     )
 
-            # Đọc lại trước COMMIT vẫn dùng chính transaction connection.
             final_set = self.repository.get_by_id(
                 set_id
             )
@@ -390,9 +446,8 @@ class StudySetService:
 
     def delete_study_set(
         self,
-        set_id: int
+        set_id: int,
     ) -> None:
-        """Xóa StudySet."""
         if not self.repository.exists(
             set_id
         ):
@@ -410,9 +465,8 @@ class StudySetService:
 
     def search_study_sets(
         self,
-        keyword: str
+        keyword: str,
     ) -> list[StudySet]:
-        """Tìm StudySet theo tên."""
         keyword = keyword.strip()
 
         if not keyword:
@@ -427,9 +481,8 @@ class StudySetService:
     # ========================================================
 
     def count_study_sets(
-        self
+        self,
     ) -> int:
-        """Đếm tổng số StudySet."""
         return self.repository.count()
 
     # ========================================================
@@ -438,9 +491,8 @@ class StudySetService:
 
     def exists(
         self,
-        set_id: int
+        set_id: int,
     ) -> bool:
-        """Kiểm tra StudySet có tồn tại không."""
         return self.repository.exists(
             set_id
         )
