@@ -1,0 +1,608 @@
+/* =========================================================
+   GLOBAL
+   ========================================================= */
+
+QWidget {
+    background-color: #1e1f26;
+    color: #f2f3f5;
+    font-family: "Segoe UI";
+    font-size: 14px;
+}
+
+QMainWindow {
+    background-color: #1e1f26;
+}
+
+#CentralWidget {
+    background-color: #1e1f26;
+}
+
+#PageStack {
+    background-color: #1e1f26;
+}
+
+
+/* =========================================================
+   SIDEBAR
+   ========================================================= */
+
+#Sidebar {
+    background-color: #17181f;
+    border-right: 1px solid #2d2f3a;
+}
+
+#SidebarTitle {
+    color: #ffffff;
+
+    font-size: 26px;
+    font-weight: 700;
+
+    padding: 10px;
+}
+
+
+/* =========================================================
+   SIDEBAR BUTTON
+   ========================================================= */
+
+#SidebarButton {
+    background-color: transparent;
+
+    color: #b9bcc8;
+
+    border: none;
+
+    border-radius: 8px;
+
+    text-align: left;
+
+    padding-left: 18px;
+
+    font-size: 15px;
+
+    font-weight: 500;
+}
+
+#SidebarButton:hover {
+    background-color: #252733;
+
+    color: #ffffff;
+}
+
+#SidebarButton:checked {
+    background-color: #4255ff;
+
+    color: #ffffff;
+
+    font-weight: 600;
+}
+
+
+/* =========================================================
+   PAGE TITLES
+   ========================================================= */
+
+#PageTitle {
+    color: #ffffff;
+
+    font-size: 28px;
+
+    font-weight: 700;
+}
+
+#SectionTitle {
+    color: #ffffff;
+
+    font-size: 20px;
+
+    font-weight: 600;
+}
+
+#FieldLabel {
+    color: #d7d9e0;
+
+    font-size: 14px;
+
+    font-weight: 600;
+}
+
+
+/* =========================================================
+   TEXT
+   ========================================================= */
+
+#SecondaryText {
+    color: #9396a5;
+
+    font-size: 14px;
+}
+
+#EmptyMessage {
+    color: #8c8f9d;
+
+    font-size: 16px;
+
+    padding: 30px;
+}
+
+
+/* =========================================================
+   PRIMARY BUTTON
+   ========================================================= */
+
+#PrimaryButton {
+    background-color: #4255ff;
+
+    color: #ffffff;
+
+    border: none;
+
+    border-radius: 8px;
+
+    padding: 10px 18px;
+
+    font-size: 14px;
+
+    font-weight: 600;
+}
+
+#PrimaryButton:hover {
+    background-color: #5364ff;
+}
+
+#PrimaryButton:pressed {
+    background-color: #3243de;
+}
+
+#PrimaryButton:disabled {
+    background-color: #35384a;
+
+    color: #777b8d;
+}
+
+
+/* =========================================================
+   SECONDARY BUTTON
+   ========================================================= */
+
+#SecondaryButton {
+    background-color: #2b2d37;
+
+    color: #e5e7eb;
+
+    border: 1px solid #3d404c;
+
+    border-radius: 8px;
+
+    padding: 9px 16px;
+
+    font-size: 14px;
+
+    font-weight: 500;
+}
+
+#SecondaryButton:hover {
+    background-color: #353844;
+
+    border: 1px solid #505362;
+}
+
+#SecondaryButton:pressed {
+    background-color: #252733;
+}
+
+#SecondaryButton:checked {
+    background-color: #4255ff;
+
+    border: 1px solid #4255ff;
+
+    color: white;
+}
+
+#SecondaryButton:disabled {
+    background-color: #272932;
+
+    color: #666a77;
+
+    border: 1px solid #33353e;
+}
+
+
+/* =========================================================
+   DANGER BUTTON
+   ========================================================= */
+
+#DangerButton {
+    background-color: #3c2529;
+
+    color: #ffb6bd;
+
+    border: 1px solid #66363d;
+
+    border-radius: 8px;
+
+    padding: 9px 16px;
+
+    font-size: 14px;
+
+    font-weight: 600;
+}
+
+#DangerButton:hover {
+    background-color: #522d33;
+
+    color: #ffffff;
+}
+
+#DangerButton:pressed {
+    background-color: #6a333b;
+}
+
+
+/* =========================================================
+   INPUT
+   ========================================================= */
+
+#MainInput,
+#CardInput,
+#DescriptionInput {
+    background-color: #262832;
+
+    color: #ffffff;
+
+    border: 1px solid #3b3e49;
+
+    border-radius: 8px;
+
+    padding: 10px;
+
+    selection-background-color: #4255ff;
+}
+
+#MainInput:focus,
+#CardInput:focus,
+#DescriptionInput:focus {
+    border: 1px solid #4255ff;
+
+    background-color: #292b36;
+}
+
+#MainInput::placeholder,
+#CardInput::placeholder {
+    color: #747887;
+}
+
+
+/* =========================================================
+   STUDY SET LIST
+   ========================================================= */
+
+#StudySetList {
+    background-color: transparent;
+
+    border: none;
+
+    outline: none;
+}
+
+#StudySetList::item {
+    background-color: #262832;
+
+    color: #ffffff;
+
+    border: 1px solid #343640;
+
+    border-radius: 10px;
+
+    padding: 14px;
+
+    margin-top: 3px;
+
+    margin-bottom: 3px;
+}
+
+#StudySetList::item:hover {
+    background-color: #2c2f3b;
+
+    border: 1px solid #454957;
+}
+
+#StudySetList::item:selected {
+    background-color: #303a78;
+
+    border: 1px solid #4255ff;
+
+    color: white;
+}
+
+
+/* =========================================================
+   FLASHCARD ROW
+   ========================================================= */
+
+#FlashcardRow {
+    background-color: #252731;
+
+    border: 1px solid #343742;
+
+    border-radius: 10px;
+}
+
+#CardNumber {
+    color: #9296a6;
+
+    font-size: 14px;
+
+    font-weight: 600;
+}
+
+
+/* =========================================================
+   DELETE CARD BUTTON
+   ========================================================= */
+
+#DeleteCardButton {
+    background-color: transparent;
+
+    color: #b5b8c5;
+
+    border: none;
+
+    border-radius: 6px;
+
+    font-size: 22px;
+
+    font-weight: bold;
+}
+
+#DeleteCardButton:hover {
+    background-color: #49282e;
+
+    color: #ff7c89;
+}
+
+#DeleteCardButton:pressed {
+    background-color: #5d3037;
+}
+
+
+/* =========================================================
+   SCROLL AREA
+   ========================================================= */
+
+#CardScrollArea {
+    background-color: transparent;
+
+    border: none;
+}
+
+#CardScrollArea QWidget {
+    background-color: transparent;
+}
+
+
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
+
+QScrollBar:vertical {
+    background-color: #202129;
+
+    width: 10px;
+
+    margin: 0px;
+
+    border: none;
+}
+
+QScrollBar::handle:vertical {
+    background-color: #4b4f5e;
+
+    min-height: 30px;
+
+    border-radius: 5px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background-color: #5c6070;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {
+    background: none;
+}
+
+
+/* =========================================================
+   FLASHCARD
+   ========================================================= */
+
+#Flashcard {
+    background-color: #ffffff;
+
+    border: 1px solid #d5d8e2;
+
+    border-radius: 18px;
+}
+
+#Flashcard:hover {
+    border: 2px solid #4255ff;
+}
+
+
+/* =========================================================
+   FLASHCARD SIDE
+   ========================================================= */
+
+#FlashcardSide {
+    background-color: transparent;
+
+    color: #4255ff;
+
+    font-size: 13px;
+
+    font-weight: 700;
+
+    letter-spacing: 2px;
+}
+
+
+/* =========================================================
+   FLASHCARD TEXT
+   ========================================================= */
+
+#FlashcardText {
+    background-color: transparent;
+
+    color: #20212a;
+
+    font-size: 30px;
+
+    font-weight: 600;
+}
+
+
+/* =========================================================
+   FLASHCARD HINT
+   ========================================================= */
+
+#FlashcardHint {
+    background-color: transparent;
+
+    color: #8c909d;
+
+    font-size: 13px;
+}
+
+
+/* =========================================================
+   FLASHCARD COUNTER
+   ========================================================= */
+
+#FlashcardCounter {
+    color: #c6c9d2;
+
+    font-size: 16px;
+
+    font-weight: 600;
+}
+
+
+/* =========================================================
+   LIST WIDGET
+   ========================================================= */
+
+QListWidget {
+    outline: none;
+}
+
+
+/* =========================================================
+   MESSAGE BOX
+   ========================================================= */
+
+QMessageBox {
+    background-color: #24262f;
+}
+
+QMessageBox QLabel {
+    background-color: transparent;
+
+    color: #ffffff;
+
+    font-size: 14px;
+}
+
+QMessageBox QPushButton {
+    background-color: #333642;
+
+    color: white;
+
+    border: 1px solid #444855;
+
+    border-radius: 6px;
+
+    min-width: 80px;
+
+    padding: 7px 14px;
+}
+
+QMessageBox QPushButton:hover {
+    background-color: #4255ff;
+
+    border: 1px solid #4255ff;
+}
+
+
+/* =========================================================
+   TOOLTIP
+   ========================================================= */
+
+QToolTip {
+    background-color: #2e303a;
+
+    color: #ffffff;
+
+    border: 1px solid #494c58;
+
+    padding: 6px;
+
+    border-radius: 4px;
+}
+
+
+/* =========================================================
+   TEXT EDIT
+   ========================================================= */
+
+QTextEdit {
+    background-color: #262832;
+
+    color: #ffffff;
+
+    border: 1px solid #3b3e49;
+
+    border-radius: 8px;
+
+    padding: 8px;
+}
+
+
+/* =========================================================
+   LINE EDIT
+   ========================================================= */
+
+QLineEdit {
+    background-color: #262832;
+
+    color: #ffffff;
+
+    border: 1px solid #3b3e49;
+
+    border-radius: 8px;
+
+    padding: 8px;
+}
+
+
+/* =========================================================
+   BUTTON DEFAULT
+   ========================================================= */
+
+QPushButton {
+    min-height: 32px;
+}
+
+
+/* =========================================================
+   DISABLED
+   ========================================================= */
+
+QPushButton:disabled {
+    color: #666a78;
+}
