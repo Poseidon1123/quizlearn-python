@@ -125,10 +125,6 @@ class StudySetDetailPage(QWidget):
         self.card_count_label.setObjectName("SecondaryText")
         layout.addWidget(self.card_count_label)
 
-        # ----------------------------------------------------
-        # PROGRESS
-        # ----------------------------------------------------
-
         progress_title = QLabel("Progress")
         progress_title.setObjectName("SectionTitle")
         layout.addWidget(progress_title)
@@ -163,10 +159,6 @@ class StudySetDetailPage(QWidget):
         progress_stats.addStretch()
         layout.addLayout(progress_stats)
 
-        # ----------------------------------------------------
-        # STUDY MODES
-        # ----------------------------------------------------
-
         section_title = QLabel("Study modes")
         section_title.setObjectName("SectionTitle")
         layout.addWidget(section_title)
@@ -174,8 +166,8 @@ class StudySetDetailPage(QWidget):
         self.flashcards_mode = StudyModeCard(
             title="Flashcards",
             description=(
-                "Ôn từng thẻ bằng cách lật Term và Definition, có thể "
-                "shuffle và di chuyển Previous / Next."
+                "Ôn từng thẻ bằng cách lật Term và Definition, sau đó tự "
+                "đánh giá Again / Hard / Good / Easy."
             ),
             button_text="Start Flashcards",
         )
@@ -187,11 +179,11 @@ class StudySetDetailPage(QWidget):
         self.learn_mode = StudyModeCard(
             title="Learn",
             description=(
-                "Trả lời câu hỏi và tập trung nhiều hơn vào những thẻ "
-                "bạn chưa nhớ tốt."
+                "App đưa ra Term, bạn tự nhập Definition. Câu trả lời sai "
+                "được đưa lại vào cuối hàng đợi để luyện lại."
             ),
-            button_text="Coming soon",
-            enabled=False,
+            button_text="Start Learn",
+            enabled=True,
         )
         self.learn_mode.clicked.connect(self._request_learn)
         layout.addWidget(self.learn_mode)
@@ -253,6 +245,7 @@ class StudySetDetailPage(QWidget):
 
         has_cards = total_cards > 0
         self.flashcards_mode.action_button.setEnabled(has_cards)
+        self.learn_mode.action_button.setEnabled(has_cards)
 
         return True
 
@@ -288,6 +281,7 @@ class StudySetDetailPage(QWidget):
         self.description_label.setVisible(False)
         self.card_count_label.setText("0 cards")
         self.flashcards_mode.action_button.setEnabled(False)
+        self.learn_mode.action_button.setEnabled(False)
         self._show_progress(
             {
                 "new": 0,
