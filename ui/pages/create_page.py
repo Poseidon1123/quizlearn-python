@@ -31,7 +31,11 @@ class CreatePage(QWidget):
         super().__init__(parent)
 
         self.study_set_service = study_set_service
+
+        # Giữ tham số này để không phá API hiện tại của MainWindow.
+        # Luồng Create không còn gọi FlashcardService trực tiếp nữa.
         self.flashcard_service = flashcard_service
+
         self.card_rows: list[FlashcardEditorRow] = []
 
         self._setup_ui()
@@ -201,114 +205,79 @@ class CreatePage(QWidget):
         )
 
     # ========================================================
-    # DATA / VALIDATION
+    # DATA
     # ========================================================
 
     def _get_flashcard_data(
         self,
     ) -> list[tuple[str, str]]:
-        cards: list[tuple[str, str]] = []
+        """
+        Chỉ thu thập dữ liệu từ UI.
 
-        for row in self.card_rows:
-            term, definition = row.get_content()
-
-            if not term and not definition:
-                continue
-
-            if not term:
-                raise ValueError(
-                    f"Flashcard số {row.index}: "
-                    "Term / Question đang để trống."
-                )
-
-            if not definition:
-                raise ValueError(
-                    f"Flashcard số {row.index}: "
-                    "Definition / Answer đang để trống."
-                )
-
-            cards.append((term, definition))
-
-        return cards
+        Validation nghiệp vụ được thực hiện tập trung trong
+        StudySetService.create_study_set_with_flashcards().
+        """
+        return [
+            row.get_content()
+            for row in self.card_rows
+        ]
 
     # ========================================================
     # CREATE
     # ========================================================
 
     def _create_study_set(self) -> None:
-        title = self.title_input.text().strip()
-        description = (
-            self.description_input
-            .toPlainText()
-            .strip()
-        )
-
-        try:
-            cards = self._get_flashcard_data()
-        except ValueError as error:
-            QMessageBox.warning(
-                self,
-                "Invalid Flashcard",
-                str(error),
-            )
-            return
-
-        if not cards:
-            QMessageBox.warning(
-                self,
-                "No Flashcards",
-                "Hãy nhập ít nhất một flashcard.",
-            )
-            return
+        cards = self._get_flashcard_data()
 
         self.create_button.setEnabled(False)
 
         try:
-            study_set = self.study_set_service.create_study_set(
-                title=title,
-                description=description,
-            )
-
-            self.flashcard_service.create_many_flashcards(
-                set_id=study_set.id,
-                cards=cards,
+            study_set = (
+                self.study_set_service
+                .create_study_set_with_flashcards(
+                    title=self.title_input.text(),
+                    description=(
+                        self.description_input.toPlainText()
+                    ),
+                    cards=cards,
+                )
             )
 
         except ValueError as error:
             QMessageBox.warning(
                 self,
-                "Invalid Study Set",
+                "Invalid Data",
                 str(error),
             )
             return
 
         except Exception as error:
-            # Create flow vẫn giữ cơ chế cleanup cũ. Một bước sau có thể
-            # chuyển use case này sang transaction tương tự Edit.
-            if "study_set" in locals() and study_set.id is not None:
-                try:
-                    self.study_set_service.delete_study_set(
-                        study_set.id
-                    )
-                except Exception:
-                    pass
-
             QMessageBox.critical(
                 self,
                 "Create Error",
-                str(error),
+                (
+                    "Không thể tạo Study Set. "
+                    "Mọi thay đổi trong lần tạo này đã được rollback.\n\n"
+                    f"{error}"
+                ),
             )
             return
 
         finally:
             self.create_button.setEnabled(True)
 
+        valid_card_count = sum(
+            1
+            for term, definition in cards
+            if term.strip() or definition.strip()
+        )
+
         QMessageBox.information(
             self,
             "Success",
             (
                 f'Đã tạo bộ "{study_set.title}" '
-                f"với {len(cards)} flashcard."
+                f"với {valid_card_count} flashcard."
             ),
         )
 
