@@ -15,6 +15,7 @@ from services.study_set_service import StudySetService
 from services.study_progress_service import StudyProgressService
 from services.learning_service import LearningService
 from services.test_service import TestService
+from services.pronunciation_service import PronunciationService
 
 from ui.main_window import MainWindow
 
@@ -24,44 +25,27 @@ BASE_DIR = Path(__file__).resolve().parent
 
 def load_stylesheet(app: QApplication) -> None:
     style_path = BASE_DIR / "styles" / "dark.qss"
-
     if not style_path.exists():
-        print(
-            f"[WARNING] Không tìm thấy stylesheet: {style_path}"
-        )
+        print(f"[WARNING] Không tìm thấy stylesheet: {style_path}")
         return
 
-    with open(
-        style_path,
-        "r",
-        encoding="utf-8",
-    ) as file:
+    with open(style_path, "r", encoding="utf-8") as file:
         app.setStyleSheet(file.read())
 
 
 def create_database() -> Database:
     database_path = BASE_DIR / "data" / "quizlet.db"
-    database_path.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
+    database_path.parent.mkdir(parents=True, exist_ok=True)
     database = Database(database_path)
     create_tables(database)
     return database
 
 
-def create_repositories(
-    database: Database,
-):
-    study_set_repository = StudySetRepository(database)
-    flashcard_repository = FlashcardRepository(database)
-    study_progress_repository = StudyProgressRepository(database)
-
+def create_repositories(database: Database):
     return {
-        "study_set": study_set_repository,
-        "flashcard": flashcard_repository,
-        "study_progress": study_progress_repository,
+        "study_set": StudySetRepository(database),
+        "flashcard": FlashcardRepository(database),
+        "study_progress": StudyProgressRepository(database),
     }
 
 
@@ -70,25 +54,23 @@ def create_services(repositories):
         repositories["study_set"],
         repositories["flashcard"],
     )
-
     flashcard_service = FlashcardService(
         repositories["flashcard"],
         repositories["study_set"],
     )
-
     study_progress_service = StudyProgressService(
         repositories["study_progress"],
         repositories["flashcard"],
         repositories["study_set"],
     )
-
-    learning_service = LearningService(
-        study_progress_service
-    )
-
+    learning_service = LearningService(study_progress_service)
     test_service = TestService(
         learning_service,
         study_progress_service,
+    )
+    pronunciation_service = PronunciationService(
+        cache_dir=BASE_DIR / "data" / "audio_cache",
+        voice="en-US-AriaNeural",
     )
 
     return {
@@ -97,15 +79,14 @@ def create_services(repositories):
         "study_progress": study_progress_service,
         "learning": learning_service,
         "test": test_service,
+        "pronunciation": pronunciation_service,
     }
 
 
 def main() -> int:
     app = QApplication(sys.argv)
-
     app.setApplicationName("Quizlet Python")
     app.setOrganizationName("QuizletPython")
-
     load_stylesheet(app)
 
     database = create_database()
@@ -118,6 +99,7 @@ def main() -> int:
         study_progress_service=services["study_progress"],
         learning_service=services["learning"],
         test_service=services["test"],
+        pronunciation_service=services["pronunciation"],
     )
 
     window.show()
