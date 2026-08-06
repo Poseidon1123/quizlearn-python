@@ -30,3 +30,6 @@ dist/
 # Temporary files
 *.tmp
 *.bak
+
+# Generated pronunciation audio
+data/audio_cache/
