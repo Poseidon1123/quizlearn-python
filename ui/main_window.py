@@ -1,4 +1,10 @@
-from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QStackedWidget
+from PySide6.QtWidgets import (
+    QMainWindow,
+    QWidget,
+    QHBoxLayout,
+    QStackedWidget,
+    QMessageBox,
+)
 
 from services.study_set_service import StudySetService
 from services.flashcard_service import FlashcardService
@@ -131,6 +137,12 @@ class MainWindow(QMainWindow):
         self.pronunciation_service.finished.connect(
             self.pronunciation_service.play_downloaded_file
         )
+        self.pronunciation_service.failed.connect(
+            self._show_pronunciation_error
+        )
+
+    def _show_pronunciation_error(self, message: str) -> None:
+        QMessageBox.warning(self, "Pronunciation", message)
 
     def show_home_page(self) -> None:
         self.home_page.refresh()
