@@ -85,6 +85,8 @@ class FlashcardPage(QWidget):
         parent=None,
     ):
         super().__init__(parent)
+        self.setFocusPolicy(Qt.StrongFocus)
+
         self.study_set_service = study_set_service
         self.flashcard_service = flashcard_service
         self.study_progress_service = study_progress_service
@@ -117,6 +119,9 @@ class FlashcardPage(QWidget):
         header.addStretch()
         self.speak_button = QPushButton("🔊  Pronounce")
         self.speak_button.setObjectName("PronounceButton")
+        # Không cho nút giữ keyboard focus. Nếu nút đang focus, phím Space
+        # sẽ kích hoạt lại nút thay vì được FlashcardPage dùng để lật thẻ.
+        self.speak_button.setFocusPolicy(Qt.NoFocus)
         self.speak_button.clicked.connect(self._speak_current_term)
         header.addWidget(self.speak_button)
         self.shuffle_button = QPushButton("Shuffle")
@@ -222,6 +227,7 @@ class FlashcardPage(QWidget):
         self.description_label.setVisible(bool(study_set.description))
         self._update_session_progress()
         self._show_card() if self.cards else self._show_empty_state()
+        self.setFocus(Qt.OtherFocusReason)
 
     def _show_card(self) -> None:
         card = self.cards[self.current_index]
@@ -233,6 +239,7 @@ class FlashcardPage(QWidget):
         self.card_status_label.setText("Flip the card, then rate your recall.")
         self._set_rating_enabled(False)
         self._update_navigation()
+        self.setFocus(Qt.OtherFocusReason)
 
     def _show_empty_state(self) -> None:
         self.flashcard.setVisible(False)
@@ -245,6 +252,8 @@ class FlashcardPage(QWidget):
     def _speak_current_term(self) -> None:
         if self.cards:
             self.pronunciation_service.speak(self.cards[self.current_index].term)
+        # Trả focus về page để Space tiếp tục chỉ có tác dụng lật thẻ.
+        self.setFocus(Qt.OtherFocusReason)
 
     def _on_card_flipped(self, showing_definition: bool) -> None:
         self._set_rating_enabled(showing_definition and bool(self.cards))
@@ -330,13 +339,16 @@ class FlashcardPage(QWidget):
     def keyPressEvent(self, event) -> None:
         if event.key() == Qt.Key_Space:
             self.flashcard.flip()
+            event.accept()
         elif event.key() == Qt.Key_P:
             self._speak_current_term()
+            event.accept()
         elif event.key() in (Qt.Key_1, Qt.Key_2, Qt.Key_3, Qt.Key_4):
             ratings = {
                 Qt.Key_1: RATING_AGAIN, Qt.Key_2: RATING_HARD,
                 Qt.Key_3: RATING_GOOD, Qt.Key_4: RATING_EASY,
             }
             self.rate_current_card(ratings[event.key()])
+            event.accept()
         else:
             super().keyPressEvent(event)
